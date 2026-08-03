@@ -4,7 +4,6 @@ import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  // GitHub Pages serves from /FaceRead/ — must match the repo name exactly (case-sensitive).
   base: '/FaceRead/',
   plugins: [react()],
   resolve: {
