@@ -1,6 +1,4 @@
-# Lightweight dependencies for free-tier hosting (Render free, Railway trial, etc.)
-# Uses opencv-headless + numpy only — no dlib/face_recognition compilation.
-# The embedding module falls back to histogram-based features automatically.
+# Lite deps for free-tier hosting (opencv-headless + numpy; no dlib).
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9

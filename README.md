@@ -1,62 +1,41 @@
 # FaceAttend — Face Recognition Attendance System
 
-A production-grade face recognition attendance system with liveness detection, built as a multi-tenant SaaS MVP.
-
-## System Architecture
+Production-grade face recognition attendance system with liveness detection, built as a multi-tenant SaaS MVP.
 
 ```
-┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
-│  React Frontend      │     │  Python FastAPI       │     │  Supabase           │
-│  (GitHub Pages)      │     │  Backend (Render/VPS) │     │  (Cloud)            │
-│                      │     │                      │     │                     │
-│  - Supabase Auth     │────▶│  - JWT validation     │────▶│  - PostgreSQL       │
-│  - Camera capture    │     │  - Face detection     │     │  - Auth             │
-│  - Liveness challenge│     │  - Embedding extract  │     │  - Storage          │
-│  - Dashboard UI      │     │  - Liveness detection │     │  - RLS policies     │
-│  - Reports/Export    │◀────│  - Attendance logic   │◀────│                     │
-└─────────────────────┘     └──────────────────────┘     └─────────────────────┘
+React Frontend (GitHub Pages) → Python FastAPI (Render) → Supabase (Auth + Postgres + RLS)
 ```
 
-**Key principle**: The frontend talks directly to Supabase for auth and simple CRUD (protected by RLS). All biometric processing happens in Python — the frontend never sees embeddings, and the service role key never reaches the browser.
+## What was fixed in this build
 
-## Quick Start
+| # | Bug | Fix |
+|---|-----|-----|
+| 1 | Sign-up created a Supabase auth user but **no profile** | New DB trigger `on_auth_user_created` auto-creates a profile + default org + settings (`supabase/migrations/20260803160000_auto_profile_and_bootstrap.sql`). The backend also self-heals via `_ensure_profile`. |
+| 2 | Camera started but **video was blank** / couldn't capture | Rewrote `useCamera` + `CameraCapture` so the `<video>` element is **always mounted** and the stream is attached via `useEffect` (previously the element was gated behind `ready`, so `srcObject` was set on nothing). |
+| 3 | Employees / Settings showed **"Failed to fetch" / "No settings"** | Same root cause as #1 (no org). The bootstrap migration links every profile to a default org and seeds `app_settings`. Settings page now falls back to defaults. |
 
-### 1. Database
-Run the two SQL migrations in `supabase/migrations/` in the Supabase SQL Editor.
+## Setup
 
-### 2. Backend
-```bash
-cd backend
-cp .env.example .env
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
+### 1. Database (Supabase → SQL Editor, run in order)
+1. `supabase/migrations/20260803155254_create_core_schema.sql`
+2. `supabase/migrations/20260803155331_create_rls_policies.sql`
+3. `supabase/migrations/20260803160000_auto_profile_and_bootstrap.sql`  ← **fixes the profile bug**
 
-### 3. Frontend
-```bash
-cp .env.example .env
-npm install
-npm run dev
-```
+### 2. Frontend (GitHub Pages)
+- `vite.config.ts` has `base: '/FaceRead/'`, app uses `HashRouter`.
+- Add repo **secrets**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL`.
+- Settings → Pages → Source = **GitHub Actions**. Push to `main` to deploy.
 
-## Deployment
-
-### Frontend (GitHub Pages)
-- `vite.config.ts` has `base: '/FaceRead/'` (must match repo name).
-- App uses `HashRouter` so deep links work on Pages without 404s.
-- Add repo secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL`.
-- Set Pages source to **GitHub Actions**. The workflow builds and deploys on push to `main`.
-
-### Backend (Render)
+### 3. Backend (Render)
 - Root Directory = `backend`, Dockerfile Path = `Dockerfile`.
-- Set env vars from `backend/.env.example`.
+- Env vars: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_ORIGINS=https://gprocessor.github.io`.
 
 ## Roles
 | Role | Access |
 |---|---|
-| super_admin | All organizations, all data |
+| super_admin | All organizations |
 | org_admin | Own organization, full management |
-| hr_officer | Own organization, employees + attendance |
+| hr_officer | Own org, employees + attendance |
 | supervisor | Own department, view attendance |
 | employee | Own records only |
 

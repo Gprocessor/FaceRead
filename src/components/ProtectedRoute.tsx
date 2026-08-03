@@ -10,7 +10,6 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-sm">
@@ -18,14 +17,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       </div>
     );
   }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
+  if (!user) return <Navigate to="/login" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }

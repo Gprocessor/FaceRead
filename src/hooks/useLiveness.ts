@@ -58,14 +58,5 @@ export function useLiveness() {
     setError(null);
   }, []);
 
-  return {
-    phase,
-    challenge,
-    result,
-    error,
-    camera,
-    startChallenge,
-    submitFrames,
-    reset,
-  };
+  return { phase, challenge, result, error, camera, startChallenge, submitFrames, reset };
 }

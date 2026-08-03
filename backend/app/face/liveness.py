@@ -1,18 +1,4 @@
-"""
-Liveness detection using OpenCV heuristics.
-
-For the MVP, uses challenge-based liveness:
-- BLINK: detect eye state changes across frames (eye cascade)
-- TURN_HEAD_LEFT / TURN_HEAD_RIGHT: detect horizontal face-center movement
-- LOOK_STRAIGHT: verify a face is centered and forward-facing
-- SMILE: detect a smile via the smile cascade (optional)
-
-MVP limitations:
-- Blink detection alone is not enough for production
-- Video replay attacks are possible
-- Printed photo attacks may bypass weak systems
-- Advanced anti-spoofing models should be added before commercial launch
-"""
+"""Challenge-based liveness detection using OpenCV heuristics."""
 import time
 import random
 import cv2
@@ -33,12 +19,8 @@ CHALLENGE_INSTRUCTIONS = {
 
 
 def get_random_challenge() -> dict:
-    """Return a random challenge type and instruction."""
-    challenge = random.choice(CHALLENGES)
-    return {
-        "challenge_type": challenge,
-        "instruction": CHALLENGE_INSTRUCTIONS[challenge],
-    }
+    c = random.choice(CHALLENGES)
+    return {"challenge_type": c, "instruction": CHALLENGE_INSTRUCTIONS[c]}
 
 
 def _eye_cascade():
@@ -49,10 +31,9 @@ def _smile_cascade():
     return cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_smile.xml")
 
 
-def _face_centers(frames_bgr: list[np.ndarray]) -> list[tuple[float, float]]:
-    """Return normalized (cx, cy) face centers across frames where a face is found."""
-    centers: list[tuple[float, float]] = []
-    for img in frames_bgr:
+def _face_centers(frames):
+    centers = []
+    for img in frames:
         faces = detect_faces(img)
         if not faces:
             continue
@@ -62,11 +43,10 @@ def _face_centers(frames_bgr: list[np.ndarray]) -> list[tuple[float, float]]:
     return centers
 
 
-def _eye_open_ratio(frames_bgr: list[np.ndarray]) -> list[int]:
-    """Count detected eyes per frame (proxy for blink: open eyes -> closed -> open)."""
+def _eye_counts(frames):
     eye = _eye_cascade()
-    counts: list[int] = []
-    for img in frames_bgr:
+    counts = []
+    for img in frames:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = detect_faces(img)
         if not faces:
@@ -79,8 +59,8 @@ def _eye_open_ratio(frames_bgr: list[np.ndarray]) -> list[int]:
     return counts
 
 
-def _score_blink(frames_bgr: list[np.ndarray]) -> float:
-    counts = _eye_open_ratio(frames_bgr)
+def _score_blink(frames):
+    counts = _eye_counts(frames)
     if not counts:
         return 0.0
     has_open = any(c >= 2 for c in counts)
@@ -95,33 +75,28 @@ def _score_blink(frames_bgr: list[np.ndarray]) -> float:
     return max(0.0, min(1.0, score))
 
 
-def _score_turn(frames_bgr: list[np.ndarray], direction: str) -> float:
-    centers = _face_centers(frames_bgr)
+def _score_turn(frames):
+    centers = _face_centers(frames)
     if len(centers) < 2:
         return 0.0
     xs = [c[0] for c in centers]
-    spread = max(xs) - min(xs)
-    # Any meaningful horizontal movement counts; direction is a soft signal.
-    score = min(1.0, spread * 4.0)
-    return max(0.0, min(1.0, score))
+    return max(0.0, min(1.0, (max(xs) - min(xs)) * 4.0))
 
 
-def _score_look_straight(frames_bgr: list[np.ndarray]) -> float:
-    centers = _face_centers(frames_bgr)
+def _score_look_straight(frames):
+    centers = _face_centers(frames)
     if not centers:
         return 0.0
     cx = float(np.mean([c[0] for c in centers]))
     cy = float(np.mean([c[1] for c in centers]))
-    # Closer to center (0.5, 0.5) => higher score.
     dist = ((cx - 0.5) ** 2 + (cy - 0.5) ** 2) ** 0.5
     return max(0.0, min(1.0, 1.0 - dist * 2.0))
 
 
-def _score_smile(frames_bgr: list[np.ndarray]) -> float:
+def _score_smile(frames):
     smile = _smile_cascade()
-    hits = 0
-    seen = 0
-    for img in frames_bgr:
+    hits, seen = 0, 0
+    for img in frames:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = detect_faces(img)
         if not faces:
@@ -132,50 +107,24 @@ def _score_smile(frames_bgr: list[np.ndarray]) -> float:
         smiles = smile.detectMultiScale(roi, scaleFactor=1.7, minNeighbors=20, minSize=(25, 25))
         if len(smiles) > 0:
             hits += 1
-    if seen == 0:
-        return 0.0
-    return max(0.0, min(1.0, hits / seen))
+    return 0.0 if seen == 0 else max(0.0, min(1.0, hits / seen))
 
 
 def analyze_frames(frames: list[bytes], challenge_type: str) -> dict:
-    """
-    Analyze a sequence of frames for the given liveness challenge.
-    Returns: {passed, liveness_score, failure_reason, frame_count, processing_time_ms}
-    """
     start = time.time()
-
-    decoded: list[np.ndarray] = []
-    for raw in frames:
-        img = decode_image(raw)
-        if img is not None:
-            decoded.append(img)
-
+    decoded = [img for raw in frames if (img := decode_image(raw)) is not None]
     frame_count = len(decoded)
     if frame_count == 0:
-        return {
-            "passed": False,
-            "liveness_score": 0.0,
-            "failure_reason": "No valid frames received",
-            "frame_count": 0,
-            "processing_time_ms": int((time.time() - start) * 1000),
-        }
-
-    faces_seen = sum(1 for img in decoded if detect_faces(img))
-    if faces_seen == 0:
-        return {
-            "passed": False,
-            "liveness_score": 0.0,
-            "failure_reason": "No face detected across submitted frames",
-            "frame_count": frame_count,
-            "processing_time_ms": int((time.time() - start) * 1000),
-        }
+        return {"passed": False, "liveness_score": 0.0, "failure_reason": "No valid frames received",
+                "frame_count": 0, "processing_time_ms": int((time.time() - start) * 1000)}
+    if sum(1 for img in decoded if detect_faces(img)) == 0:
+        return {"passed": False, "liveness_score": 0.0, "failure_reason": "No face detected across submitted frames",
+                "frame_count": frame_count, "processing_time_ms": int((time.time() - start) * 1000)}
 
     if challenge_type == "BLINK":
         score = _score_blink(decoded)
-    elif challenge_type == "TURN_HEAD_LEFT":
-        score = _score_turn(decoded, "left")
-    elif challenge_type == "TURN_HEAD_RIGHT":
-        score = _score_turn(decoded, "right")
+    elif challenge_type in ("TURN_HEAD_LEFT", "TURN_HEAD_RIGHT"):
+        score = _score_turn(decoded)
     elif challenge_type == "LOOK_STRAIGHT":
         score = _score_look_straight(decoded)
     elif challenge_type == "SMILE":
@@ -184,10 +133,6 @@ def analyze_frames(frames: list[bytes], challenge_type: str) -> dict:
         score = _score_look_straight(decoded)
 
     passed = score >= LIVENESS_THRESHOLD
-    return {
-        "passed": passed,
-        "liveness_score": round(float(score), 4),
-        "failure_reason": None if passed else "Liveness challenge not satisfied",
-        "frame_count": frame_count,
-        "processing_time_ms": int((time.time() - start) * 1000),
-    }
+    return {"passed": passed, "liveness_score": round(float(score), 4),
+            "failure_reason": None if passed else "Liveness challenge not satisfied",
+            "frame_count": frame_count, "processing_time_ms": int((time.time() - start) * 1000)}

@@ -18,14 +18,7 @@ const accentMap = {
   slate: 'from-slate-500/10 to-slate-500/5 text-slate-400 border-slate-500/20',
 };
 
-export function DashboardCard({
-  title,
-  value,
-  subtitle,
-  icon,
-  trend,
-  accent = 'slate',
-}: DashboardCardProps) {
+export function DashboardCard({ title, value, subtitle, icon, trend, accent = 'slate' }: DashboardCardProps) {
   return (
     <div className={`rounded-xl border bg-gradient-to-br p-5 ${accentMap[accent]}`}>
       <div className="flex items-start justify-between">

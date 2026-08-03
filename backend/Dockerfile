@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Install system dependencies for OpenCV
+# System dependencies for OpenCV
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libsm6 \
@@ -11,8 +11,6 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Use lite requirements by default (no dlib compilation — works on free tiers).
-# To use full face_recognition, build with --build-arg USE_FULL=1
 ARG USE_FULL=0
 COPY requirements-lite.txt requirements.txt
 COPY requirements-full.txt requirements-full.txt
@@ -28,5 +26,4 @@ RUN if [ "$USE_FULL" = "1" ]; then \
 COPY . .
 
 EXPOSE 8000
-
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

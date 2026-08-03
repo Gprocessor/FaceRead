@@ -1,7 +1,3 @@
-# Render Blueprint — one-click deployment
-# After pushing to GitHub, go to render.com -> New -> Blueprint
-# and connect this repository. Render will read this file.
-
 services:
   - type: web
     name: faceattend-api
@@ -18,8 +14,6 @@ services:
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: JWT_SECRET
         sync: false
       - key: ALLOWED_ORIGINS
         value: https://gprocessor.github.io

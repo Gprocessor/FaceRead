@@ -14,7 +14,7 @@ export function useAuth() {
 
   useEffect(() => {
     loadUser();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, _session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
       (async () => {
         await loadUser();
       })();

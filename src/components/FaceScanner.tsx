@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ScanFace, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useCamera } from '@/hooks/useCamera';
-import { CameraCapture, CameraPlaceholder } from './CameraCapture';
+import { CameraCapture } from './CameraCapture';
 import { getDeviceInfo } from '@/utils/deviceInfo';
 
 interface FaceScannerProps {
@@ -13,20 +13,15 @@ interface FaceScannerProps {
   errorMessage?: string | null;
 }
 
-export function FaceScanner({
-  onCapture,
-  title,
-  subtitle,
-  buttonText,
-  successMessage,
-  errorMessage,
-}: FaceScannerProps) {
+export function FaceScanner({ onCapture, title, subtitle, buttonText, successMessage, errorMessage }: FaceScannerProps) {
   const camera = useCamera();
   const [processing, setProcessing] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Start the camera automatically on mount.
   useEffect(() => {
+    camera.startCamera();
     return () => camera.stopCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -37,7 +32,7 @@ export function FaceScanner({
     try {
       const blob = await camera.captureFrame();
       if (!blob) {
-        setError('Failed to capture frame from camera');
+        setError('Failed to capture frame. Make sure the camera preview is visible.');
         setProcessing(false);
         return;
       }
@@ -63,11 +58,7 @@ export function FaceScanner({
         {subtitle && <p className="text-sm text-slate-400 mt-1">{subtitle}</p>}
       </div>
 
-      {camera.ready ? (
-        <CameraCapture videoRef={camera.videoRef} overlay={faceOverlay} />
-      ) : (
-        <CameraPlaceholder error={camera.error} />
-      )}
+      <CameraCapture videoRef={camera.videoRef} ready={camera.ready} error={camera.error} overlay={faceOverlay} />
 
       {done && successMessage && (
         <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg p-3">
@@ -75,7 +66,6 @@ export function FaceScanner({
           {successMessage}
         </div>
       )}
-
       {(error || errorMessage) && (
         <div className="flex items-center gap-2 text-sm text-rose-400 bg-rose-500/10 rounded-lg p-3">
           <XCircle className="w-4 h-4" />
@@ -101,13 +91,11 @@ export function FaceScanner({
           >
             {processing ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Processing…
+                <Loader2 className="w-4 h-4 animate-spin" /> Processing…
               </>
             ) : (
               <>
-                <ScanFace className="w-4 h-4" />
-                {buttonText}
+                <ScanFace className="w-4 h-4" /> {buttonText}
               </>
             )}
           </button>
