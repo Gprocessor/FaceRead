@@ -1,0 +1,30 @@
+# Render Blueprint — one-click deployment
+# After pushing to GitHub, go to render.com → New → Blueprint
+# and connect this repository. Render will read this file.
+
+services:
+  - type: web
+    name: faceattend-api
+    env: docker
+    region: oregon
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://your-org.github.io
+      - key: FACE_MATCH_THRESHOLD
+        value: 0.6
+      - key: LIVENESS_THRESHOLD
+        value: 0.7
+      - key: MAX_ALLOWED_FACES
+        value: 1

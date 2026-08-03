@@ -1,0 +1,12 @@
+# Lightweight dependencies for free-tier hosting (Render free, Railway trial, etc.)
+# Uses opencv-headless + numpy only — no dlib/face_recognition compilation.
+# The embedding module falls back to histogram-based features automatically.
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic==2.9.2
+supabase==2.7.4
+PyJWT==2.9.0
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+python-dotenv==1.0.1
