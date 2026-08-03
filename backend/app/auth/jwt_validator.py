@@ -1,11 +1,14 @@
 """
-JWT validation — verifies Supabase-issued JWTs to authenticate API requests.
-Extracts user_id, email, and role from the token claims.
+JWT validation — verifies Supabase-issued tokens by asking Supabase to
+validate them (algorithm-agnostic: works with the new ES256/JWKS keys and
+the legacy HS256 secret). Avoids brittle local jwt.decode with a shared secret.
 """
-import jwt
+import json
+import urllib.request
+import urllib.error
 from fastapi import HTTPException, status, Request
 
-from app.config import JWT_SECRET
+from app.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 
 def _extract_token(request: Request) -> str:
@@ -18,62 +21,70 @@ def _extract_token(request: Request) -> str:
     return auth[7:]
 
 
-def validate_jwt(request: Request) -> dict:
+def _validate_with_supabase(token: str) -> dict:
     """
-    Validate the Supabase JWT from the Authorization header.
-    Returns the decoded payload containing user_id, email, role, etc.
-    Raises 401 if the token is missing, expired, or invalid.
+    Call Supabase's /auth/v1/user endpoint to validate the token.
+    Returns the Supabase user object if valid, raises 401 otherwise.
     """
-    token = _extract_token(request)
+    if not SUPABASE_URL:
+        raise HTTPException(status_code=500, detail="SUPABASE_URL not configured")
+
+    apikey = SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY
+    url = f"{SUPABASE_URL}/auth/v1/user"
+    req = urllib.request.Request(url)
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("apikey", apikey)
+
     try:
-        payload = jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data
+    except urllib.error.HTTPError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired",
+            detail="Invalid or expired token",
         )
-    except jwt.InvalidTokenError:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail="Could not validate token",
         )
 
 
-def get_user_id(request: Request) -> str:
-    """Extract the user_id (sub) from a validated JWT."""
-    payload = validate_jwt(request)
-    uid = payload.get("sub")
+def validate_jwt(request: Request) -> dict:
+    """Validate the token and return a payload-like dict (sub, email, role)."""
+    token = _extract_token(request)
+    user = _validate_with_supabase(token)
+    uid = user.get("id")
     if not uid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token missing user ID",
         )
-    return uid
+    return {
+        "sub": uid,
+        "email": user.get("email", ""),
+        "role": user.get("role", "authenticated"),
+    }
+
+
+def get_user_id(request: Request) -> str:
+    """Extract the user_id (sub) from a validated token."""
+    return validate_jwt(request)["sub"]
 
 
 def get_user_profile(request: Request) -> dict:
     """
-    Validate the JWT and fetch the user's profile from Supabase.
+    Validate the token and fetch the user's profile from Supabase.
     Returns a dict with: user_id, email, role, organization_id, full_name.
     """
     payload = validate_jwt(request)
-    uid = payload.get("sub")
-    if not uid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing user ID",
-        )
+    uid = payload["sub"]
 
     from app.database.supabase_client import get_supabase
 
     sb = get_supabase()
-    result = sb.table("profiles").select("*").eq("user_id", uid).single().execute()
+    result = sb.table("profiles").select("*").eq("user_id", uid).maybe_single().execute()
     profile = result.data
     if not profile:
         raise HTTPException(
