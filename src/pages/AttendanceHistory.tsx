@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { History, Loader2, Download } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
-import { useAuth } from '@/hooks/useAuth';
 import { formatDate, formatTime, formatScore } from '@/utils/validators';
 
 interface LogRow {
@@ -16,7 +15,6 @@ interface LogRow {
 }
 
 export function AttendanceHistory() {
-  const { user } = useAuth();
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('');
@@ -45,15 +43,7 @@ export function AttendanceHistory() {
   }, []);
 
   const exportCsv = () => {
-    const headers = [
-      'Date',
-      'Type',
-      'Status',
-      'Verification',
-      'Face Score',
-      'Liveness Score',
-      'Time',
-    ];
+    const headers = ['Date', 'Type', 'Status', 'Verification', 'Face Score', 'Liveness Score', 'Time'];
     const rows = logs.map((l) => [
       formatDate(l.attendance_date),
       l.check_type,
@@ -63,9 +53,7 @@ export function AttendanceHistory() {
       l.liveness_score ? (l.liveness_score * 100).toFixed(1) + '%' : '',
       formatTime(l.created_at),
     ]);
-    const csv = [headers, ...rows]
-      .map((r) => r.map((c) => `"${c}"`).join(','))
-      .join('\n');
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -86,15 +74,14 @@ export function AttendanceHistory() {
         </div>
         <button
           onClick={exportCsv}
-          disabled={logs.length === 0}
-          className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-sm hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+          className="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 font-medium text-sm hover:bg-slate-700 transition-colors flex items-center gap-2"
         >
           <Download className="w-4 h-4" />
           Export CSV
         </button>
       </div>
 
-      <div className="flex gap-3 items-end">
+      <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="block text-xs font-medium text-slate-400 mb-1.5">From</label>
           <input
@@ -115,7 +102,7 @@ export function AttendanceHistory() {
         </div>
         <button
           onClick={load}
-          className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400"
+          className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors"
         >
           Filter
         </button>
@@ -127,78 +114,40 @@ export function AttendanceHistory() {
             <Loader2 className="w-6 h-6 text-sky-500 animate-spin" />
           </div>
         ) : logs.length === 0 ? (
-          <div className="flex flex-col items-center py-12 text-slate-500">
-            <History className="w-10 h-10 mb-3" />
-            <p className="text-sm">No attendance records found</p>
+          <div className="py-12 text-center text-sm text-slate-500">
+            No attendance records found
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs">
-                  <th className="text-left px-4 py-3 font-medium">Date</th>
-                  <th className="text-left px-4 py-3 font-medium">Type</th>
-                  <th className="text-left px-4 py-3 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 font-medium">Verification</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Face</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Liveness</th>
-                  <th className="text-left px-4 py-3 font-medium">Time</th>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-400 text-xs">
+                <th className="text-left px-4 py-3 font-medium">Date</th>
+                <th className="text-left px-4 py-3 font-medium">Type</th>
+                <th className="text-left px-4 py-3 font-medium">Status</th>
+                <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Verification</th>
+                <th className="text-left px-4 py-3 font-medium">Face</th>
+                <th className="text-left px-4 py-3 font-medium">Liveness</th>
+                <th className="text-left px-4 py-3 font-medium">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((l) => (
+                <tr key={l.id} className="border-b border-slate-800/50 last:border-0">
+                  <td className="px-4 py-3 text-slate-300">{formatDate(l.attendance_date)}</td>
+                  <td className="px-4 py-3 text-slate-400 capitalize">
+                    {l.check_type.replace('_', ' ')}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400 capitalize">{l.status}</td>
+                  <td className="px-4 py-3 text-slate-400 hidden md:table-cell capitalize">
+                    {l.verification_status}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">{formatScore(l.face_match_score)}</td>
+                  <td className="px-4 py-3 text-slate-400">{formatScore(l.liveness_score)}</td>
+                  <td className="px-4 py-3 text-slate-400">{formatTime(l.created_at)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {logs.map((l) => (
-                  <tr
-                    key={l.id}
-                    className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30"
-                  >
-                    <td className="px-4 py-3 text-slate-300">
-                      {formatDate(l.attendance_date)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400 capitalize">
-                      {l.check_type.replace('_', ' ')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          l.status === 'present'
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : l.status === 'late'
-                            ? 'bg-amber-500/10 text-amber-400'
-                            : l.status === 'absent'
-                            ? 'bg-rose-500/10 text-rose-400'
-                            : 'bg-slate-700 text-slate-400'
-                        }`}
-                      >
-                        {l.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs ${
-                          l.verification_status === 'verified'
-                            ? 'text-emerald-400'
-                            : l.verification_status === 'failed'
-                            ? 'text-rose-400'
-                            : 'text-slate-400'
-                        }`}
-                      >
-                        {l.verification_status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-400 hidden md:table-cell">
-                      {formatScore(l.face_match_score)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400 hidden md:table-cell">
-                      {formatScore(l.liveness_score)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400">
-                      {formatTime(l.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

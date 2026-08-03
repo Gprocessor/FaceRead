@@ -9,6 +9,7 @@ if (!API_BASE_URL) {
 export class ApiError extends Error {
   status: number;
   detail: unknown;
+
   constructor(message: string, status: number, detail?: unknown) {
     super(message);
     this.name = 'ApiError';
@@ -53,6 +54,7 @@ export async function apiRequest<T = unknown>(
       `Request failed (${res.status})`;
     throw new ApiError(message, res.status, body);
   }
+
   return body as T;
 }
 
@@ -67,6 +69,7 @@ export async function apiUpload<T = unknown>(
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
   }
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers,
@@ -78,11 +81,12 @@ export async function apiUpload<T = unknown>(
   if (contentType?.includes('application/json')) {
     body = await res.json();
   }
+
   if (!res.ok) {
     const message =
-      (body as { detail?: string })?.detail ||
-      `Upload failed (${res.status})`;
+      (body as { detail?: string })?.detail || `Upload failed (${res.status})`;
     throw new ApiError(message, res.status, body);
   }
+
   return body as T;
 }

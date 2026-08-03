@@ -7,7 +7,7 @@ from time import time
 
 
 class RateLimiter:
-    """Simple in-memory rate limiter (per IP). For production, use Redis."""
+    """Simple in-memory rate limiter (per key). For production, use Redis."""
 
     def __init__(self, max_requests: int = 30, window_seconds: int = 60):
         self.max_requests = max_requests

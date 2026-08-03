@@ -6,13 +6,13 @@ RUN apt-get update && apt-get install -y \
     libsm6 \
     libxrender1 \
     libxext6 \
-    libgl1-mesa-glx \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Use lite requirements by default (no dlib compilation — works on free tiers)
-# To use full face_recognition, set BUILD_ARG USE_FULL=1
+# Use lite requirements by default (no dlib compilation — works on free tiers).
+# To use full face_recognition, build with --build-arg USE_FULL=1
 ARG USE_FULL=0
 COPY requirements-lite.txt requirements.txt
 COPY requirements-full.txt requirements-full.txt
@@ -22,7 +22,7 @@ RUN if [ "$USE_FULL" = "1" ]; then \
       && pip install --no-cache-dir -r requirements-full.txt \
       && rm -rf /var/lib/apt/lists/*; \
     else \
-      pip install --no-cache-dir -r requirements-lite.txt; \
+      pip install --no-cache-dir -r requirements.txt; \
     fi
 
 COPY . .

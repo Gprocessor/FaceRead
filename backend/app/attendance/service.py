@@ -3,6 +3,7 @@ Attendance service — business logic for check-in/check-out, duplicate
 prevention, status determination, and attendance session management.
 """
 from datetime import datetime, date
+
 from app.database.supabase_client import get_supabase
 from app.config import FACE_MATCH_THRESHOLD, LIVENESS_THRESHOLD
 
@@ -14,7 +15,7 @@ def get_org_settings(organization_id: str) -> dict:
         sb.table("app_settings")
         .select("*")
         .eq("organization_id", organization_id)
-        .maybeSingle()
+        .maybe_single()
         .execute()
     )
     return result.data or {
@@ -29,7 +30,9 @@ def get_org_settings(organization_id: str) -> dict:
     }
 
 
-def check_duplicate(organization_id: str, employee_id: str, check_type: str, target_date: date | None = None) -> dict | None:
+def check_duplicate(
+    organization_id: str, employee_id: str, check_type: str, target_date: date | None = None
+) -> dict | None:
     """
     Check if an attendance log already exists for this employee today.
     Returns the existing log if duplicate found, None otherwise.
@@ -54,15 +57,12 @@ def determine_status(check_type: str, check_time: datetime, settings: dict) -> s
     """Determine attendance status (present/late) based on check-in time."""
     if check_type == "check_out":
         return "checked_out"
-
     work_start = settings.get("work_start_time", "09:00")
     late_minutes = settings.get("late_threshold_minutes", 15)
-
     start_h, start_m = map(int, work_start.split(":"))
     deadline = check_time.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
     deadline = deadline.replace(tzinfo=None)
     check_naive = check_time.replace(tzinfo=None) if check_time.tzinfo else check_time
-
     diff_minutes = (check_naive - deadline).total_seconds() / 60
     if diff_minutes > late_minutes:
         return "late"
@@ -79,13 +79,12 @@ def create_attendance_session(
 ) -> str:
     """Create or update an attendance session for the day. Returns session ID."""
     sb = get_supabase()
-
     existing = (
         sb.table("attendance_sessions")
         .select("*")
         .eq("employee_id", employee_id)
         .eq("attendance_date", attendance_date.isoformat())
-        .maybeSingle()
+        .maybe_single()
         .execute()
     )
 
@@ -102,7 +101,11 @@ def create_attendance_session(
 
     if existing.data:
         session_id = existing.data["id"]
-        update_data = {k: v for k, v in session_data.items() if k != "organization_id" and k != "employee_id"}
+        update_data = {
+            k: v
+            for k, v in session_data.items()
+            if k != "organization_id" and k != "employee_id"
+        }
         sb.table("attendance_sessions").update(update_data).eq("id", session_id).execute()
         return session_id
     else:

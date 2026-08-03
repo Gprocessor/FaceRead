@@ -2,6 +2,7 @@
 Auth routes — token validation and user info endpoints.
 """
 from fastapi import APIRouter, Request
+
 from app.auth.jwt_validator import get_user_profile
 
 router = APIRouter()

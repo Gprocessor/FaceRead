@@ -4,6 +4,7 @@ Extracts user_id, email, and role from the token claims.
 """
 import jwt
 from fastapi import HTTPException, status, Request
+
 from app.config import JWT_SECRET
 
 

@@ -19,30 +19,30 @@ def detect_spoof(image: np.ndarray) -> dict:
     Basic anti-spoofing heuristic using image quality analysis.
     Returns: {is_live, confidence, method}
 
-    This is a placeholder. For production, replace with a trained model.
+    Heuristic: real camera captures have moderate high-frequency detail
+    (texture). Printed photos / low-quality screen replays tend to be
+    either very flat (low Laplacian variance) or show moiré patterns.
+    This is a weak proxy — replace with a trained model for production.
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # High-frequency analysis — screen replays often have moiré patterns
-    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    # Sharpness / texture via Laplacian variance
+    lap_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
-    # Color depth check — printed photos have reduced color depth
-    color_channels = cv2.split(image)
-    color_range = sum(float(ch.max() - ch.min()) for ch in color_channels) / 3
-
-    # Heuristic scoring
-    texture_ok = laplacian_var > 30
-    color_ok = color_range > 100
-
-    is_live = texture_ok and color_ok
-    confidence = min(1.0, (laplacian_var / 100 + color_range / 255) / 2)
+    # Normalize into a rough 0..1 confidence band.
+    # Very low variance (flat print) -> low confidence of being live.
+    if lap_var < 15:
+        confidence = 0.2
+    elif lap_var < 50:
+        confidence = 0.5
+    elif lap_var < 500:
+        confidence = 0.85
+    else:
+        # Extremely high can indicate noise / screen artifacts
+        confidence = 0.6
 
     return {
-        "is_live": is_live,
-        "confidence": confidence,
-        "method": "heuristic_texture_color",
-        "details": {
-            "laplacian_variance": float(laplacian_var),
-            "color_range": float(color_range),
-        },
+        "is_live": confidence >= 0.5,
+        "confidence": round(confidence, 3),
+        "method": "laplacian_variance_heuristic",
     }

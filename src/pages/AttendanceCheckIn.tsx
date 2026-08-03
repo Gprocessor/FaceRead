@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CalendarCheck, LogIn, LogOut, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LogIn, LogOut, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { LivenessChallenge } from '@/components/LivenessChallenge';
 import { FaceScanner } from '@/components/FaceScanner';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,8 +19,7 @@ export function AttendanceCheckIn() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Find the current user's employee record
-  useState(() => {
+  useEffect(() => {
     (async () => {
       if (!user) return;
       const { data } = await supabase
@@ -31,7 +30,6 @@ export function AttendanceCheckIn() {
       if (data) {
         setEmployeeId(data.id);
       } else {
-        // fallback: allow picking any employee for demo
         const { data: allEmps } = await supabase
           .from('employees')
           .select('id, full_name, employee_code')
@@ -42,7 +40,7 @@ export function AttendanceCheckIn() {
       }
       setLoading(false);
     })();
-  });
+  }, [user]);
 
   const handleLivenessComplete = (sessionId: string) => {
     setLivenessSessionId(sessionId);
@@ -54,10 +52,30 @@ export function AttendanceCheckIn() {
     setError(null);
     const location = await getLocation();
     const fn = checkType === 'check_in' ? checkIn : checkOut;
-    const res = await fn(employeeId, imageBlob, livenessSessionId, getDeviceInfo(), location ?? undefined);
+    const res = await fn(
+      employeeId,
+      imageBlob,
+      livenessSessionId,
+      getDeviceInfo(),
+      location ?? undefined
+    );
     setResult(res);
     setStep('result');
   };
+
+  const stepPill = (label: string, active: boolean, done: boolean) => (
+    <span
+      className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+        done
+          ? 'bg-emerald-500/10 text-emerald-400'
+          : active
+          ? 'bg-sky-500/10 text-sky-400'
+          : 'bg-slate-800 text-slate-500'
+      }`}
+    >
+      {label}
+    </span>
+  );
 
   if (loading) {
     return (
@@ -76,152 +94,113 @@ export function AttendanceCheckIn() {
         </p>
       </div>
 
-      {step === 'select' && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 space-y-4">
-          <p className="text-sm text-slate-400">Choose an action:</p>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => {
-                setCheckType('check_in');
-                setStep('liveness');
-              }}
-              className="flex flex-col items-center gap-3 p-6 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-sky-500 hover:bg-sky-500/5 transition-colors"
-            >
-              <LogIn className="w-8 h-8 text-sky-400" />
-              <span className="text-sm font-medium text-slate-200">Check In</span>
-            </button>
-            <button
-              onClick={() => {
-                setCheckType('check_out');
-                setStep('liveness');
-              }}
-              className="flex flex-col items-center gap-3 p-6 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-emerald-500 hover:bg-emerald-500/5 transition-colors"
-            >
-              <LogOut className="w-8 h-8 text-emerald-400" />
-              <span className="text-sm font-medium text-slate-200">Check Out</span>
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        {stepPill('Liveness', step === 'liveness', step === 'face' || step === 'result')}
+        {stepPill('Face Verify', step === 'face', step === 'result')}
+        {stepPill('Result', step === 'result', false)}
+      </div>
 
-      {step === 'liveness' && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div className="flex items-center gap-2 mb-4 text-sm text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-sky-500" /> Liveness
-            </span>
-            <span className="flex items-center gap-1.5 opacity-40">
-              <span className="w-2 h-2 rounded-full bg-slate-600" /> Face Verify
-            </span>
-            <span className="flex items-center gap-1.5 opacity-40">
-              <span className="w-2 h-2 rounded-full bg-slate-600" /> Result
-            </span>
+      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        {step === 'select' && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-400">Choose an action:</p>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  setCheckType('check_in');
+                  setStep('liveness');
+                }}
+                className="flex flex-col items-center gap-3 p-6 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-sky-500 hover:bg-sky-500/5 transition-colors"
+              >
+                <LogIn className="w-8 h-8 text-sky-400" />
+                <span className="text-sm font-medium text-slate-200">Check In</span>
+              </button>
+              <button
+                onClick={() => {
+                  setCheckType('check_out');
+                  setStep('liveness');
+                }}
+                className="flex flex-col items-center gap-3 p-6 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-emerald-500 hover:bg-emerald-500/5 transition-colors"
+              >
+                <LogOut className="w-8 h-8 text-emerald-400" />
+                <span className="text-sm font-medium text-slate-200">Check Out</span>
+              </button>
+            </div>
           </div>
-          <LivenessChallenge onComplete={handleLivenessComplete} />
-        </div>
-      )}
+        )}
 
-      {step === 'face' && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div className="flex items-center gap-2 mb-4 text-sm text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Liveness
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-sky-500" /> Face Verify
-            </span>
-            <span className="flex items-center gap-1.5 opacity-40">
-              <span className="w-2 h-2 rounded-full bg-slate-600" /> Result
-            </span>
-          </div>
+        {step === 'liveness' && <LivenessChallenge onComplete={handleLivenessComplete} />}
+
+        {step === 'face' && (
           <FaceScanner
             onCapture={handleFaceCapture}
             title="Face Verification"
-            subtitle="Look at the camera for identity verification."
+            subtitle="Look at the camera and capture to confirm your identity."
             buttonText="Verify & Submit"
             errorMessage={error}
           />
-        </div>
-      )}
+        )}
 
-      {step === 'result' && result && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <div className="flex items-center gap-2 mb-4 text-sm text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Liveness
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Face Verify
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-sky-500" /> Result
-            </span>
-          </div>
-
-          <div
-            className={`flex flex-col items-center gap-3 py-6 ${
-              result.success ? 'text-emerald-400' : 'text-rose-400'
-            }`}
-          >
+        {step === 'result' && result && (
+          <div className="space-y-4 text-center">
             {result.success ? (
-              <CheckCircle2 className="w-14 h-14" />
+              <CheckCircle2 className="w-14 h-14 mx-auto text-emerald-400" />
             ) : (
-              <XCircle className="w-14 h-14" />
+              <XCircle className="w-14 h-14 mx-auto text-rose-400" />
             )}
-            <p className="text-lg font-semibold">
+            <h3 className="text-lg font-semibold text-slate-100">
               {result.success
                 ? `${checkType === 'check_in' ? 'Check-In' : 'Check-Out'} Successful`
                 : 'Verification Failed'}
-            </p>
+            </h3>
+
             {result.duplicate && (
-              <p className="text-sm text-amber-400">
+              <div className="text-sm text-amber-400 bg-amber-500/10 rounded-lg p-3">
                 You have already checked in today.
-              </p>
+              </div>
             )}
-            <div className="grid grid-cols-2 gap-4 mt-4 text-sm text-slate-400">
-              <div>
+
+            <div className="grid grid-cols-2 gap-3 text-left">
+              <div className="bg-slate-800/50 rounded-lg p-3">
                 <p className="text-xs text-slate-500">Face Match</p>
-                <p className="text-slate-200">
+                <p className="text-lg font-semibold text-slate-100">
                   {((result.face_match_score ?? 0) * 100).toFixed(1)}%
                 </p>
               </div>
-              <div>
+              <div className="bg-slate-800/50 rounded-lg p-3">
                 <p className="text-xs text-slate-500">Liveness</p>
-                <p className="text-slate-200">
+                <p className="text-lg font-semibold text-slate-100">
                   {((result.liveness_score ?? 0) * 100).toFixed(1)}%
                 </p>
               </div>
-              <div>
+              <div className="bg-slate-800/50 rounded-lg p-3">
                 <p className="text-xs text-slate-500">Status</p>
-                <p className="text-slate-200 capitalize">{result.status}</p>
+                <p className="text-sm font-medium text-slate-200 capitalize">{result.status}</p>
               </div>
-              <div>
+              <div className="bg-slate-800/50 rounded-lg p-3">
                 <p className="text-xs text-slate-500">Verification</p>
-                <p className="text-slate-200 capitalize">
+                <p className="text-sm font-medium text-slate-200 capitalize">
                   {result.verification_status}
                 </p>
               </div>
             </div>
+
+            <button
+              onClick={() => {
+                setStep('select');
+                setResult(null);
+                setLivenessSessionId(null);
+                setError(null);
+              }}
+              className="w-full mt-4 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-sm hover:bg-slate-700 transition-colors"
+            >
+              Done
+            </button>
           </div>
-
-          <button
-            onClick={() => {
-              setStep('select');
-              setResult(null);
-              setLivenessSessionId(null);
-              setError(null);
-            }}
-            className="w-full mt-4 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-sm hover:bg-slate-700 transition-colors"
-          >
-            Done
-          </button>
-        </div>
-      )}
-
-      <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
-        <CalendarCheck className="w-3.5 h-3.5" />
-        {new Date().toLocaleString()}
+        )}
       </div>
+
+      <p className="text-xs text-slate-600">{new Date().toLocaleString()}</p>
     </div>
   );
 }

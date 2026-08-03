@@ -27,27 +27,21 @@ export function DashboardCard({
   accent = 'slate',
 }: DashboardCardProps) {
   return (
-    <div
-      className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5 ${accentMap[accent]}`}
-    >
+    <div className={`rounded-xl border bg-gradient-to-br p-5 ${accentMap[accent]}`}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-            {title}
-          </p>
-          <p className="mt-2 text-3xl font-bold text-slate-100">{value}</p>
-          {subtitle && (
-            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-          )}
+          <p className="text-xs font-medium text-slate-400">{title}</p>
+          <p className="text-2xl font-bold text-slate-100 mt-1">{value}</p>
+          {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
         </div>
         {icon && <div className="opacity-80">{icon}</div>}
       </div>
       {trend && (
-        <div className="mt-3 flex items-center gap-1.5 text-sm">
+        <div className="mt-3 flex items-center gap-1 text-xs">
           {trend === 'up' ? (
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
           ) : trend === 'down' ? (
-            <TrendingDown className="w-4 h-4 text-rose-400" />
+            <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
           ) : null}
         </div>
       )}

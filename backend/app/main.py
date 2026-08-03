@@ -4,8 +4,16 @@ Configures CORS, includes all route modules, and starts the server.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.config import ALLOWED_ORIGINS, PORT
-from app.routes import health_routes, auth_routes, employee_routes, face_routes, liveness_routes, attendance_routes
+from app.routes import (
+    health_routes,
+    auth_routes,
+    employee_routes,
+    face_routes,
+    liveness_routes,
+    attendance_routes,
+)
 
 app = FastAPI(
     title="FaceAttend API",
@@ -36,4 +44,5 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=PORT, reload=True)

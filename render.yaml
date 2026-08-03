@@ -1,5 +1,5 @@
 # Render Blueprint — one-click deployment
-# After pushing to GitHub, go to render.com → New → Blueprint
+# After pushing to GitHub, go to render.com -> New -> Blueprint
 # and connect this repository. Render will read this file.
 
 services:
@@ -9,6 +9,7 @@ services:
     region: oregon
     plan: free
     dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
@@ -21,7 +22,7 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: ALLOWED_ORIGINS
-        value: https://your-org.github.io
+        value: https://gprocessor.github.io
       - key: FACE_MATCH_THRESHOLD
         value: 0.6
       - key: LIVENESS_THRESHOLD

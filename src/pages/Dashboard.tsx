@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, CalendarCheck, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Users, CalendarCheck, Clock, AlertTriangle } from 'lucide-react';
 import { DashboardCard } from '@/components/DashboardCard';
 import { useAuth } from '@/hooks/useAuth';
 import { getAdminReports, type AdminReport } from '@/services/attendanceService';
@@ -18,7 +18,10 @@ export function Dashboard() {
     (async () => {
       setLoading(true);
       try {
-        if (user && ['super_admin', 'org_admin', 'hr_officer', 'supervisor'].includes(user.role)) {
+        if (
+          user &&
+          ['super_admin', 'org_admin', 'hr_officer', 'supervisor'].includes(user.role)
+        ) {
           const r = await getAdminReports();
           setReport(r);
         }
@@ -52,13 +55,11 @@ export function Dashboard() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-        </div>
+        <div className="text-sm text-slate-500">Loading…</div>
       ) : (
         <>
           {isAdmin && report && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <DashboardCard
                 title="Total Employees"
                 value={report.total_employees}
@@ -90,78 +91,42 @@ export function Dashboard() {
 
           {isAdmin && report && (
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-200">
-                  Attendance Rate
-                </h3>
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="flex items-end gap-2">
-                <p className="text-3xl font-bold text-slate-100">
-                  {(report.attendance_rate * 100).toFixed(1)}%
-                </p>
-                <p className="text-sm text-slate-500 mb-1">today</p>
-              </div>
-              <div className="mt-3 h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-emerald-500 to-sky-400 rounded-full transition-all duration-500"
-                  style={{ width: `${report.attendance_rate * 100}%` }}
-                />
-              </div>
+              <h3 className="text-sm font-semibold text-slate-300">Attendance Rate</h3>
+              <p className="text-3xl font-bold text-emerald-400 mt-1">
+                {(report.attendance_rate * 100).toFixed(1)}%
+              </p>
+              <p className="text-xs text-slate-500 mt-1">today</p>
             </div>
           )}
 
-          <div>
-            <h3 className="text-sm font-semibold text-slate-200 mb-3">
-              Recent Attendance
-            </h3>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
-              {myAttendance.length === 0 ? (
-                <p className="p-6 text-sm text-slate-500 text-center">
-                  No attendance records yet.
-                </p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 text-xs">
-                      <th className="text-left px-4 py-3 font-medium">Date</th>
-                      <th className="text-left px-4 py-3 font-medium">Status</th>
-                      <th className="text-left px-4 py-3 font-medium">Check In</th>
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <h3 className="text-sm font-semibold text-slate-300 mb-4">Recent Attendance</h3>
+            {myAttendance.length === 0 ? (
+              <p className="text-sm text-slate-500">No attendance records yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 text-xs">
+                    <th className="text-left px-2 py-2 font-medium">Date</th>
+                    <th className="text-left px-2 py-2 font-medium">Status</th>
+                    <th className="text-left px-2 py-2 font-medium">Check In</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myAttendance.map((row, i) => (
+                    <tr key={i} className="border-b border-slate-800/50 last:border-0">
+                      <td className="px-2 py-2 text-slate-300">
+                        {new Date(row.attendance_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-2 py-2 text-slate-400 capitalize">{row.status}</td>
+                      <td className="px-2 py-2 text-slate-400">
+                        {row.check_in_time ? formatTime(row.check_in_time) : '—'}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {myAttendance.map((row, i) => (
-                      <tr
-                        key={i}
-                        className="border-b border-slate-800/50 last:border-0"
-                      >
-                        <td className="px-4 py-3 text-slate-300">
-                          {new Date(row.attendance_date).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              row.status === 'present'
-                                ? 'bg-emerald-500/10 text-emerald-400'
-                                : row.status === 'late'
-                                ? 'bg-amber-500/10 text-amber-400'
-                                : row.status === 'absent'
-                                ? 'bg-rose-500/10 text-rose-400'
-                                : 'bg-slate-700 text-slate-400'
-                            }`}
-                          >
-                            {row.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-400">
-                          {row.check_in_time ? formatTime(row.check_in_time) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}

@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Users, Plus, Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
-import {
-  getAdminEmployees,
-  createAdminEmployee,
-} from '@/services/attendanceService';
+import { getAdminEmployees, createAdminEmployee } from '@/services/attendanceService';
 
 interface EmployeeRow {
   id: string;
@@ -28,7 +25,6 @@ export function Employees() {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [form, setForm] = useState({
     employee_code: '',
     full_name: '',
@@ -145,9 +141,7 @@ export function Employees() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Email *
-              </label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Email *</label>
               <input
                 type="email"
                 value={form.email}
@@ -157,9 +151,7 @@ export function Employees() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Phone
-              </label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Phone</label>
               <input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -167,9 +159,7 @@ export function Employees() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Position
-              </label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Position</label>
               <input
                 value={form.position}
                 onChange={(e) => setForm({ ...form, position: e.target.value })}
@@ -177,9 +167,7 @@ export function Employees() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Department
-              </label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Department</label>
               <select
                 value={form.department_id}
                 onChange={(e) => setForm({ ...form, department_id: e.target.value })}
@@ -194,9 +182,7 @@ export function Employees() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Hire Date
-              </label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Hire Date</label>
               <input
                 type="date"
                 value={form.hire_date}
@@ -226,9 +212,7 @@ export function Employees() {
       )}
 
       {error && (
-        <div className="text-sm text-rose-400 bg-rose-500/10 rounded-lg p-3">
-          {error}
-        </div>
+        <div className="text-sm text-rose-400 bg-rose-500/10 rounded-lg p-3">{error}</div>
       )}
 
       <div className="relative max-w-md">

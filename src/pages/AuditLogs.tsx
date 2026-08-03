@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { formatDate, formatTime } from '@/utils/validators';
 
@@ -47,37 +47,36 @@ export function AuditLogs() {
             <Loader2 className="w-6 h-6 text-sky-500 animate-spin" />
           </div>
         ) : logs.length === 0 ? (
-          <div className="flex flex-col items-center py-12 text-slate-500">
-            <ShieldCheck className="w-10 h-10 mb-3" />
-            <p className="text-sm">No audit logs recorded yet</p>
+          <div className="py-12 text-center text-sm text-slate-500">
+            No audit logs recorded yet
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs">
-                  <th className="text-left px-4 py-3 font-medium">Action</th>
-                  <th className="text-left px-4 py-3 font-medium">Entity</th>
-                  <th className="text-left px-4 py-3 font-medium">Role</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell">IP</th>
-                  <th className="text-left px-4 py-3 font-medium">Date</th>
-                  <th className="text-left px-4 py-3 font-medium">Time</th>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-400 text-xs">
+                <th className="text-left px-4 py-3 font-medium">Action</th>
+                <th className="text-left px-4 py-3 font-medium">Entity</th>
+                <th className="text-left px-4 py-3 font-medium">Role</th>
+                <th className="text-left px-4 py-3 font-medium hidden md:table-cell">IP</th>
+                <th className="text-left px-4 py-3 font-medium">Date</th>
+                <th className="text-left px-4 py-3 font-medium">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((l) => (
+                <tr key={l.id} className="border-b border-slate-800/50 last:border-0">
+                  <td className="px-4 py-3 text-slate-200 font-mono text-xs">{l.action}</td>
+                  <td className="px-4 py-3 text-slate-400">{l.entity_type ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-400 capitalize">{l.actor_role ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-400 hidden md:table-cell">
+                    {l.ip_address ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">{formatDate(l.created_at)}</td>
+                  <td className="px-4 py-3 text-slate-400">{formatTime(l.created_at)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {logs.map((l) => (
-                  <tr key={l.id} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30">
-                    <td className="px-4 py-3 text-slate-200 font-mono text-xs">{l.action}</td>
-                    <td className="px-4 py-3 text-slate-400">{l.entity_type ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-400 capitalize">{l.actor_role ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-500 hidden md:table-cell font-mono text-xs">{l.ip_address ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-400">{formatDate(l.created_at)}</td>
-                    <td className="px-4 py-3 text-slate-400">{formatTime(l.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

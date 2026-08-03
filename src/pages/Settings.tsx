@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Loader2, Save, CheckCircle2 } from 'lucide-react';
+import { Loader2, Save, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -79,15 +79,31 @@ export function Settings() {
 
   if (!settings) {
     return (
-      <div className="flex flex-col items-center py-12 text-slate-500">
-        <SettingsIcon className="w-10 h-10 mb-3" />
-        <p className="text-sm">No settings found for your organization.</p>
+      <div className="py-12 text-center text-sm text-slate-500">
+        No settings found for your organization.
       </div>
     );
   }
 
+  const numberField = (
+    label: string,
+    key: keyof AppSettings,
+    step = '1'
+  ) => (
+    <div>
+      <label className="block text-xs font-medium text-slate-400 mb-1.5">{label}</label>
+      <input
+        type="number"
+        step={step}
+        value={settings[key] as number}
+        onChange={(e) => setSettings({ ...settings, [key]: +e.target.value })}
+        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
+      />
+    </div>
+  );
+
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Settings</h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -95,168 +111,79 @@ export function Settings() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-5">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-200 mb-3">Attendance Rules</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Late Threshold (minutes)
-              </label>
-              <input
-                type="number"
-                value={settings.late_threshold_minutes}
-                onChange={(e) =>
-                  setSettings({ ...settings, late_threshold_minutes: +e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Duplicate Window (minutes)
-              </label>
-              <input
-                type="number"
-                value={settings.duplicate_check_window_minutes}
-                onChange={(e) =>
-                  setSettings({ ...settings, duplicate_check_window_minutes: +e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Work Start Time
-              </label>
-              <input
-                type="time"
-                value={settings.work_start_time}
-                onChange={(e) => setSettings({ ...settings, work_start_time: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Work End Time
-              </label>
-              <input
-                type="time"
-                value={settings.work_end_time}
-                onChange={(e) => setSettings({ ...settings, work_end_time: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
+      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-slate-300">Attendance Rules</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {numberField('Late Threshold (minutes)', 'late_threshold_minutes')}
+          {numberField('Duplicate Window (minutes)', 'duplicate_check_window_minutes')}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Work Start Time</label>
+            <input
+              type="time"
+              value={settings.work_start_time}
+              onChange={(e) => setSettings({ ...settings, work_start_time: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Work End Time</label>
+            <input
+              type="time"
+              value={settings.work_end_time}
+              onChange={(e) => setSettings({ ...settings, work_end_time: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
+            />
           </div>
         </div>
+      </div>
 
-        <div>
-          <h3 className="text-sm font-semibold text-slate-200 mb-3">Verification Thresholds</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Face Match Threshold
-              </label>
-              <input
-                type="number"
-                step="0.05"
-                min="0"
-                max="1"
-                value={settings.face_match_threshold}
-                onChange={(e) =>
-                  setSettings({ ...settings, face_match_threshold: +e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Liveness Threshold
-              </label>
-              <input
-                type="number"
-                step="0.05"
-                min="0"
-                max="1"
-                value={settings.liveness_threshold}
-                onChange={(e) =>
-                  setSettings({ ...settings, liveness_threshold: +e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Min Face Confidence
-              </label>
-              <input
-                type="number"
-                step="0.05"
-                min="0"
-                max="1"
-                value={settings.min_face_confidence}
-                onChange={(e) =>
-                  setSettings({ ...settings, min_face_confidence: +e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Max Allowed Faces
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="5"
-                value={settings.max_allowed_faces}
-                onChange={(e) =>
-                  setSettings({ ...settings, max_allowed_faces: +e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500"
-              />
-            </div>
-          </div>
+      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-slate-300">Verification Thresholds</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {numberField('Face Match Threshold', 'face_match_threshold', '0.05')}
+          {numberField('Liveness Threshold', 'liveness_threshold', '0.05')}
+          {numberField('Min Face Confidence', 'min_face_confidence', '0.05')}
+          {numberField('Max Allowed Faces', 'max_allowed_faces')}
         </div>
+      </div>
 
-        <div>
-          <h3 className="text-sm font-semibold text-slate-200 mb-3">Feature Toggles</h3>
-          <div className="space-y-3">
-            {([
-              ['require_liveness', 'Require liveness detection'],
-              ['require_check_out', 'Require check-out'],
-              ['allow_multiple_check_in', 'Allow multiple check-ins per day'],
-              ['geofencing_enabled', 'Enable geofencing'],
-            ] as const).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings[key]}
-                  onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
-                  className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
-                />
-                <span className="text-sm text-slate-300">{label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-300">Feature Toggles</h3>
+        {(
+          [
+            ['require_liveness', 'Require liveness detection'],
+            ['require_check_out', 'Require check-out'],
+            ['allow_multiple_check_in', 'Allow multiple check-ins per day'],
+            ['geofencing_enabled', 'Enable geofencing'],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="flex items-center gap-3 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={settings[key] as boolean}
+              onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
+              className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
+            />
+            {label}
+          </label>
+        ))}
+      </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 flex items-center gap-2"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Settings
-          </button>
-          {saved && (
-            <span className="flex items-center gap-1.5 text-sm text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
-              Saved
-            </span>
-          )}
-        </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 transition-colors flex items-center gap-2"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save Settings
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1 text-sm text-emerald-400">
+            <CheckCircle2 className="w-4 h-4" />
+            Saved
+          </span>
+        )}
       </div>
     </div>
   );

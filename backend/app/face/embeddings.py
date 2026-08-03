@@ -1,6 +1,5 @@
 """
 Face embedding extraction and comparison.
-
 Uses the `face_recognition` library if available. Falls back to a
 histogram-based feature extractor (OpenCV only) for environments where
 dlib compilation is not feasible. The fallback is less accurate but
@@ -11,7 +10,6 @@ import numpy as np
 import cv2
 
 from app.config import EMBEDDING_MODEL, FACE_MATCH_THRESHOLD
-from app.face.detector import extract_face_region
 
 
 def extract_embedding(face_image: np.ndarray) -> list[float]:
@@ -28,7 +26,6 @@ def extract_embedding(face_image: np.ndarray) -> list[float]:
             return encodings[0].tolist()
     except ImportError:
         pass
-
     return _histogram_embedding(face_image)
 
 
@@ -47,9 +44,7 @@ def _histogram_embedding(face: np.ndarray) -> list[float]:
     return embedding.tolist()
 
 
-def compare_embeddings(
-    embedding_a: list[float], embedding_b: list[float]
-) -> float:
+def compare_embeddings(embedding_a: list[float], embedding_b: list[float]) -> float:
     """
     Compare two embeddings and return a confidence score [0, 1].
     1.0 = identical match, 0.0 = no match.
@@ -70,9 +65,7 @@ def compare_embeddings(
 def is_match(
     embedding_a: list[float], embedding_b: list[float], threshold: float = None
 ) -> tuple[bool, float]:
-    """
-    Check if two embeddings match. Returns (matched, score).
-    """
+    """Check if two embeddings match. Returns (matched, score)."""
     if threshold is None:
         threshold = FACE_MATCH_THRESHOLD
     score = compare_embeddings(embedding_a, embedding_b)

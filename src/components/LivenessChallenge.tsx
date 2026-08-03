@@ -8,7 +8,6 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
-  Info,
 } from 'lucide-react';
 import { useLiveness } from '@/hooks/useLiveness';
 import { CameraCapture, CameraPlaceholder } from './CameraCapture';
@@ -50,7 +49,7 @@ const CHALLENGE_META: Record<
 };
 
 export function LivenessChallenge({ onComplete }: LivenessChallengeProps) {
-  const { phase, challenge, result, error, camera, startChallenge, submitFrames, reset } =
+  const { phase, challenge, result, error, camera, startChallenge, submitFrames } =
     useLiveness();
   const [capturing, setCapturing] = useState(false);
 
@@ -77,39 +76,35 @@ export function LivenessChallenge({ onComplete }: LivenessChallengeProps) {
     const Icon = result.passed ? CheckCircle2 : XCircle;
     const color = result.passed ? 'text-emerald-400' : 'text-rose-400';
     return (
-      <div className="space-y-4">
-        <div className={`flex flex-col items-center gap-3 py-8 ${color}`}>
-          <Icon className="w-14 h-14" />
-          <p className="text-lg font-semibold">
-            {result.passed ? 'Liveness Verified' : 'Verification Failed'}
-          </p>
-          <p className="text-sm text-slate-400">
-            Score: {(result.liveness_score * 100).toFixed(1)}%
-          </p>
-          {result.failure_reason && (
-            <p className="text-sm text-rose-400">{result.failure_reason}</p>
-          )}
-          <p className="text-xs text-slate-500">
-            {result.frame_count} frames analyzed in {result.processing_time_ms}ms
-          </p>
-        </div>
-        <div className="flex justify-center gap-3">
-          {result.passed ? (
-            <button
-              onClick={handleDone}
-              className="px-5 py-2.5 rounded-lg bg-emerald-500 text-slate-950 font-medium text-sm hover:bg-emerald-400 transition-colors"
-            >
-              Continue
-            </button>
-          ) : (
-            <button
-              onClick={reset}
-              className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors"
-            >
-              Try Again
-            </button>
-          )}
-        </div>
+      <div className="space-y-4 text-center">
+        <Icon className={`w-14 h-14 mx-auto ${color}`} />
+        <h3 className="text-lg font-semibold text-slate-100">
+          {result.passed ? 'Liveness Verified' : 'Verification Failed'}
+        </h3>
+        <p className="text-sm text-slate-400">
+          Score: {(result.liveness_score * 100).toFixed(1)}%
+        </p>
+        {result.failure_reason && (
+          <p className="text-sm text-rose-400">{result.failure_reason}</p>
+        )}
+        <p className="text-xs text-slate-600">
+          {result.frame_count} frames analyzed in {result.processing_time_ms}ms
+        </p>
+        {result.passed ? (
+          <button
+            onClick={handleDone}
+            className="px-5 py-2.5 rounded-lg bg-emerald-500 text-slate-950 font-medium text-sm hover:bg-emerald-400 transition-colors"
+          >
+            Continue
+          </button>
+        ) : (
+          <button
+            onClick={startChallenge}
+            className="px-5 py-2.5 rounded-lg bg-slate-800 text-slate-300 font-medium text-sm hover:bg-slate-700 transition-colors"
+          >
+            Try Again
+          </button>
+        )}
       </div>
     );
   }
@@ -119,55 +114,64 @@ export function LivenessChallenge({ onComplete }: LivenessChallengeProps) {
 
   return (
     <div className="space-y-4">
-      <div className="text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 text-xs font-medium mb-3">
-          <Info className="w-3.5 h-3.5" />
-          Liveness Check
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-sky-500/10 flex items-center justify-center">
+          <ChallengeIcon className="w-5 h-5 text-sky-400" />
         </div>
-        <h2 className="text-xl font-semibold text-slate-100">
-          {meta?.instruction ?? 'Preparing challenge…'}
-        </h2>
-        <p className="text-sm text-slate-400 mt-1">{meta?.description}</p>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Liveness Check</p>
+          <h3 className="text-lg font-semibold text-slate-100">
+            {meta?.instruction ?? 'Preparing challenge…'}
+          </h3>
+        </div>
       </div>
+      <p className="text-sm text-slate-400">{meta?.description}</p>
 
       {camera.ready ? (
-        <CameraCapture videoRef={camera.videoRef} />
+        <CameraCapture
+          videoRef={camera.videoRef}
+          overlay={
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-40 h-52 border-2 border-sky-400/60 rounded-[50%]" />
+            </div>
+          }
+        />
       ) : (
         <CameraPlaceholder error={camera.error} />
       )}
 
       {error && (
-        <div className="flex items-center gap-2 text-sm text-rose-400 justify-center">
-          <XCircle className="w-5 h-5" />
+        <div className="flex items-center gap-2 text-sm text-rose-400 bg-rose-500/10 rounded-lg p-3">
+          <XCircle className="w-4 h-4" />
           {error}
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex gap-2">
         {!camera.ready && !camera.error && (
           <button
-            onClick={camera.startCamera}
-            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors"
+            onClick={() => camera.startCamera()}
+            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors flex items-center gap-2"
           >
+            <ScanFace className="w-4 h-4" />
             Start Camera
           </button>
         )}
-
         {camera.ready && challenge && (
           <button
             onClick={handleCaptureAndSubmit}
-            disabled={capturing}
-            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            disabled={capturing || phase === 'analyzing'}
+            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
-            {capturing ? (
+            {capturing || phase === 'analyzing' ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Capturing…
+                {capturing ? 'Capturing…' : 'Analyzing…'}
               </>
             ) : (
               <>
-                <ChallengeIcon className="w-4 h-4" />
-                Capture & Verify
+                <ScanFace className="w-4 h-4" />
+                Capture &amp; Verify
               </>
             )}
           </button>

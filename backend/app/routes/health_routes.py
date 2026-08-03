@@ -2,6 +2,7 @@
 Health check endpoint.
 """
 from fastapi import APIRouter
+
 from app.models.schemas import HealthResponse
 from app.config import EMBEDDING_MODEL
 

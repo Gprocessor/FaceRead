@@ -1,9 +1,10 @@
 """
 Employee management routes — admin endpoints for CRUD operations.
 """
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, Request, HTTPException
+
 from app.auth.jwt_validator import get_user_profile
-from app.auth.permissions import check_permission, is_hr_or_above
+from app.auth.permissions import check_permission
 from app.database.supabase_client import get_supabase
 from app.models.schemas import CreateEmployeeRequest
 from app.utils.audit import log_audit
@@ -28,15 +29,19 @@ async def list_employees(request: Request):
 
     employees = []
     for e in result.data or []:
-        employees.append({
-            "id": e["id"],
-            "employee_code": e["employee_code"],
-            "full_name": e["full_name"],
-            "email": e.get("email"),
-            "department": e.get("departments", {}).get("name") if e.get("departments") else None,
-            "status": e["status"],
-            "face_enrolled": False,
-        })
+        employees.append(
+            {
+                "id": e["id"],
+                "employee_code": e["employee_code"],
+                "full_name": e["full_name"],
+                "email": e.get("email"),
+                "department": e.get("departments", {}).get("name")
+                if e.get("departments")
+                else None,
+                "status": e["status"],
+                "face_enrolled": False,
+            }
+        )
 
     # Check face enrollment status
     for emp in employees:
@@ -73,13 +78,11 @@ async def create_employee(request: Request, body: CreateEmployeeRequest):
         "hire_date": body.hire_date or None,
         "created_by": profile["user_id"],
     }
-
     result = sb.table("employees").insert(employee_data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create employee")
 
     emp_id = result.data[0]["id"]
-
     log_audit(
         organization_id=profile["organization_id"],
         actor_user_id=profile["user_id"],

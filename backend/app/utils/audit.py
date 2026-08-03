@@ -17,14 +17,16 @@ def log_audit(
 ) -> None:
     """Write an audit log entry."""
     sb = get_supabase()
-    sb.table("audit_logs").insert({
-        "organization_id": organization_id,
-        "actor_user_id": actor_user_id,
-        "actor_role": actor_role,
-        "action": action,
-        "entity_type": entity_type,
-        "entity_id": entity_id,
-        "details": details or {},
-        "ip_address": ip_address,
-        "user_agent": user_agent,
-    }).execute()
+    sb.table("audit_logs").insert(
+        {
+            "organization_id": organization_id,
+            "actor_user_id": actor_user_id,
+            "actor_role": actor_role,
+            "action": action,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "details": details or {},
+            "ip_address": ip_address,
+            "user_agent": user_agent,
+        }
+    ).execute()

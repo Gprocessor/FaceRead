@@ -52,14 +52,14 @@ export function FaceScanner({
 
   const faceOverlay = (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div className="w-48 h-56 rounded-[50%] border-2 border-sky-400/60 shadow-[0_0_30px_rgba(56,189,248,0.2)]" />
+      <div className="w-40 h-52 border-2 border-sky-400/60 rounded-[50%]" />
     </div>
   );
 
   return (
     <div className="space-y-4">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-slate-100">{title}</h2>
+      <div>
+        <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
         {subtitle && <p className="text-sm text-slate-400 mt-1">{subtitle}</p>}
       </div>
 
@@ -70,34 +70,34 @@ export function FaceScanner({
       )}
 
       {done && successMessage && (
-        <div className="flex items-center gap-2 text-sm text-emerald-400 justify-center">
-          <CheckCircle2 className="w-5 h-5" />
+        <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg p-3">
+          <CheckCircle2 className="w-4 h-4" />
           {successMessage}
         </div>
       )}
 
       {(error || errorMessage) && (
-        <div className="flex items-center gap-2 text-sm text-rose-400 justify-center">
-          <XCircle className="w-5 h-5" />
+        <div className="flex items-center gap-2 text-sm text-rose-400 bg-rose-500/10 rounded-lg p-3">
+          <XCircle className="w-4 h-4" />
           {error || errorMessage}
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex gap-2">
         {!camera.ready && !camera.error && (
           <button
-            onClick={camera.startCamera}
-            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors"
+            onClick={() => camera.startCamera()}
+            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors flex items-center gap-2"
           >
+            <ScanFace className="w-4 h-4" />
             Start Camera
           </button>
         )}
-
         {camera.ready && !done && (
           <button
             onClick={handleCapture}
             disabled={processing}
-            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="px-5 py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             {processing ? (
               <>
@@ -112,7 +112,6 @@ export function FaceScanner({
             )}
           </button>
         )}
-
         {done && (
           <button
             onClick={() => {
@@ -126,7 +125,7 @@ export function FaceScanner({
         )}
       </div>
 
-      <p className="text-xs text-slate-600 text-center">
+      <p className="text-[11px] text-slate-600">
         Device fingerprint: {JSON.stringify(getDeviceInfo()).slice(0, 40)}…
       </p>
     </div>

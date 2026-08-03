@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ScanFace, Mail, Lock, Loader2, AlertCircle, User } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,10 +20,7 @@ export function Login() {
     setLoading(true);
     try {
       if (mode === 'login') {
-        const { error: err } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
       } else {
         const { error: err } = await supabase.auth.signUp({
@@ -36,8 +33,7 @@ export function Login() {
       await refresh();
       navigate('/dashboard');
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : 'Authentication failed';
+      const msg = err instanceof Error ? err.message : 'Authentication failed';
       setError(msg);
     } finally {
       setLoading(false);
@@ -45,25 +41,20 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-400 flex items-center justify-center mb-4">
-            <ScanFace className="w-8 h-8 text-slate-950" />
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 mb-4">
+            <ScanFace className="w-8 h-8 text-sky-400" />
           </div>
           <h1 className="text-2xl font-bold text-slate-100">FaceAttend</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Face Recognition Attendance System
           </p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <div className="flex gap-1 mb-6 bg-slate-800/50 rounded-lg p-1">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="flex gap-1 p-1 bg-slate-800/60 rounded-lg mb-6">
             <button
               onClick={() => setMode('login')}
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -95,7 +86,6 @@ export function Login() {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
-                    type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -107,9 +97,7 @@ export function Login() {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Email
-              </label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
@@ -120,7 +108,7 @@ export function Login() {
                   className="w-full pl-10 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                   placeholder="you@company.com"
                 />
-                </div>
+              </div>
             </div>
 
             <div>
@@ -151,7 +139,7 @@ export function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-lg bg-sky-500 text-slate-950 font-semibold text-sm hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -162,15 +150,11 @@ export function Login() {
               )}
             </button>
           </form>
-        </div>
 
-        <p className="text-center text-xs text-slate-600 mt-6">
-          By signing in you agree to biometric data processing with consent.
-          <br />
-          <Link to="/dashboard" className="text-slate-500 hover:text-slate-400">
-            Demo access
-          </Link>
-        </p>
+          <p className="text-[11px] text-slate-600 text-center mt-4">
+            By signing in you agree to biometric data processing with consent.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 Face matcher — compares a probe embedding against stored employee embeddings.
 """
 from app.database.supabase_client import get_supabase
-from app.face.embeddings import deserialize_embedding, compare_embeddings, is_match
+from app.face.embeddings import deserialize_embedding, is_match
 from app.config import FACE_MATCH_THRESHOLD
 
 

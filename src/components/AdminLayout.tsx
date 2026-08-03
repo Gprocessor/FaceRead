@@ -74,21 +74,19 @@ export function AdminLayout() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex">
+    <div className="min-h-screen bg-slate-950 flex">
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col transition-transform duration-300 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-slate-900 border-r border-slate-800 flex flex-col transform transition-transform lg:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-800">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-400 flex items-center justify-center">
-            <ScanFace className="w-5 h-5 text-slate-950" />
-          </div>
-          <span className="font-semibold text-lg tracking-tight">FaceAttend</span>
+        <div className="h-16 flex items-center gap-2 px-5 border-b border-slate-800">
+          <ScanFace className="w-6 h-6 text-sky-400" />
+          <span className="font-bold text-slate-100">FaceAttend</span>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {visibleNav.map((item) => {
             const Icon = item.icon;
             return (
@@ -112,7 +110,7 @@ export function AdminLayout() {
         </nav>
 
         <div className="p-3 border-t border-slate-800">
-          <div className="px-3 py-2 mb-2">
+          <div className="px-3 py-2">
             <p className="text-sm font-medium text-slate-200 truncate">
               {user?.fullName || user?.email}
             </p>
@@ -120,7 +118,7 @@ export function AdminLayout() {
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -138,31 +136,28 @@ export function AdminLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm flex items-center justify-between px-4 lg:px-8 sticky top-0 z-20">
+        <header className="h-16 flex items-center justify-between px-4 lg:px-6 border-b border-slate-800 bg-slate-900/50">
           <button
-            className="lg:hidden text-slate-400"
+            className="lg:hidden text-slate-400 hover:text-slate-100"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
-            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div className="hidden lg:block">
-            <p className="text-sm text-slate-500">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium">
-              {user?.fullName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}
-            </div>
+          <p className="text-sm text-slate-400 hidden sm:block">
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </p>
+          <div className="w-8 h-8 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-sm font-semibold">
+            {user?.fullName?.charAt(0).toUpperCase() ||
+              user?.email?.charAt(0).toUpperCase()}
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>

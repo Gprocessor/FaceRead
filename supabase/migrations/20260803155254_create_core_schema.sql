@@ -1,47 +1,21 @@
 /*
-# Face Recognition Attendance System — Core Schema
+  # Face Recognition Attendance System — Core Schema
 
-## Summary
-Creates the complete multi-tenant database schema for a face-recognition attendance
-system with liveness detection. Supports organizations, roles, departments,
-employees, face profiles, consent tracking, attendance sessions, liveness checks,
-audit logs, and app settings.
+  Creates the complete multi-tenant database schema (13 tables) for a
+  face-recognition attendance system with liveness detection.
 
-## New Tables (13)
-1. `organizations` — top-level tenant entities (SaaS multi-tenant root)
-2. `profiles` — user profile linked to auth.users, with role + org assignment
-3. `roles` — role catalog (super_admin, org_admin, hr_officer, supervisor, employee)
-4. `departments` — departments within an organization
-5. `employees` — people tracked for attendance (can be linked to a user profile)
-6. `face_profiles` — biometric face embeddings per employee (NEVER public)
-7. `face_enrollment_sessions` — audit of each enrollment attempt
-8. `consent_records` — biometric consent tracking (GDPR/biometric privacy)
-9. `attendance_sessions` — daily attendance grouping per employee
-10. `attendance_logs` — individual check-in/check-out events with verification
-11. `liveness_checks` — liveness challenge results per attendance attempt
-12. `audit_logs` — system-wide audit trail
-13. `app_settings` — organization-level configuration (late threshold, etc.)
+  Tables: organizations, roles, profiles, departments, employees,
+  consent_records, face_profiles, face_enrollment_sessions,
+  attendance_sessions, attendance_logs, liveness_checks, audit_logs,
+  app_settings.
 
-## Security
-- RLS enabled on ALL tables
-- Organization isolation via `organization_id` on all tenant-scoped tables
-- Face profiles locked to service role + admin-only access
-- Audit logs admin-only
-- Employees see only their own attendance
-- Detailed policies applied in a follow-up migration
-
-## Notes
-- All IDs are UUIDs
-- `created_at` / `updated_at` on all tables
-- `created_by` on tables where audit of creator matters
-- Indexes on all foreign keys and frequently queried columns
-- `updated_at` triggers added for automatic timestamp maintenance
+  Security: RLS enabled on ALL tables; organization isolation via
+  organization_id; face profiles admin-only; audit logs admin-only.
 */
 
 -- ============================================================
 -- ENUM TYPES
 -- ============================================================
-
 DO $$ BEGIN
   CREATE TYPE user_role AS ENUM ('super_admin', 'org_admin', 'hr_officer', 'supervisor', 'employee');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -71,9 +45,8 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ============================================================
--- UPDATED_AT TRIGGER FUNCTION (reusable)
+-- UPDATED_AT TRIGGER FUNCTION
 -- ============================================================
-
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS trigger AS $$
 BEGIN
@@ -85,7 +58,6 @@ $$ LANGUAGE plpgsql;
 -- ============================================================
 -- 1. ORGANIZATIONS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS organizations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -97,13 +69,11 @@ CREATE TABLE IF NOT EXISTS organizations (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 2. ROLES (catalog)
+-- 2. ROLES
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS roles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name user_role NOT NULL UNIQUE,
@@ -112,13 +82,11 @@ CREATE TABLE IF NOT EXISTS roles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 3. PROFILES (auth.users link)
+-- 3. PROFILES
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS profiles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -134,7 +102,6 @@ CREATE TABLE IF NOT EXISTS profiles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_organization_id ON profiles(organization_id);
@@ -143,7 +110,6 @@ CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 -- ============================================================
 -- 4. DEPARTMENTS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS departments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -156,7 +122,6 @@ CREATE TABLE IF NOT EXISTS departments (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_departments_organization_id ON departments(organization_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_departments_org_name ON departments(organization_id, name);
@@ -164,7 +129,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_departments_org_name ON departments(organi
 -- ============================================================
 -- 5. EMPLOYEES
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS employees (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -182,7 +146,6 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_employees_organization_id ON employees(organization_id);
 CREATE INDEX IF NOT EXISTS idx_employees_department_id ON employees(department_id);
@@ -190,9 +153,8 @@ CREATE INDEX IF NOT EXISTS idx_employees_user_id ON employees(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_org_code ON employees(organization_id, employee_code);
 
 -- ============================================================
--- 6. CONSENT RECORDS (biometric privacy)
+-- 6. CONSENT RECORDS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS consent_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -208,16 +170,13 @@ CREATE TABLE IF NOT EXISTS consent_records (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE consent_records ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_consent_employee_id_emp_id ON consent_records(employee_id);
 CREATE INDEX IF NOT EXISTS idx_consent_org_id ON consent_records(organization_id);
 
 -- ============================================================
--- 7. FACE PROFILES (biometric — NEVER public)
+-- 7. FACE PROFILES
 -- ============================================================
-
--- face_embedding stored as text (JSON-serialized float array) for portability
 CREATE TABLE IF NOT EXISTS face_profiles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -235,7 +194,6 @@ CREATE TABLE IF NOT EXISTS face_profiles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE face_profiles ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_face_profiles_emp_id ON face_profiles(employee_id);
 CREATE INDEX IF NOT EXISTS idx_face_profiles_org_id ON face_profiles(organization_id);
@@ -244,7 +202,6 @@ CREATE INDEX IF NOT EXISTS idx_face_profiles_active ON face_profiles(organizatio
 -- ============================================================
 -- 8. FACE ENROLLMENT SESSIONS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS face_enrollment_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -262,15 +219,13 @@ CREATE TABLE IF NOT EXISTS face_enrollment_sessions (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE face_enrollment_sessions ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_enroll_sessions_emp_id ON face_enrollment_sessions(employee_id);
 CREATE INDEX IF NOT EXISTS idx_enroll_sessions_org_id ON face_enrollment_sessions(organization_id);
 
 -- ============================================================
--- 9. ATTENDANCE SESSIONS (daily grouping)
+-- 9. ATTENDANCE SESSIONS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS attendance_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -286,7 +241,6 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE attendance_sessions ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_attendance_sessions_emp_id ON attendance_sessions(employee_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_sessions_org_id ON attendance_sessions(organization_id);
@@ -294,9 +248,8 @@ CREATE INDEX IF NOT EXISTS idx_attendance_sessions_date ON attendance_sessions(a
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_sessions_emp_date ON attendance_sessions(employee_id, attendance_date);
 
 -- ============================================================
--- 10. ATTENDANCE LOGS (individual events)
+-- 10. ATTENDANCE LOGS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS attendance_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -318,7 +271,6 @@ CREATE TABLE IF NOT EXISTS attendance_logs (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE attendance_logs ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_attendance_logs_emp_id ON attendance_logs(employee_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_logs_org_id ON attendance_logs(organization_id);
@@ -329,7 +281,6 @@ CREATE INDEX IF NOT EXISTS idx_attendance_logs_check_type ON attendance_logs(che
 -- ============================================================
 -- 11. LIVENESS CHECKS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS liveness_checks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -344,7 +295,6 @@ CREATE TABLE IF NOT EXISTS liveness_checks (
   device_info jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE liveness_checks ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_liveness_emp_id ON liveness_checks(employee_id);
 CREATE INDEX IF NOT EXISTS idx_liveness_org_id ON liveness_checks(organization_id);
@@ -353,7 +303,6 @@ CREATE INDEX IF NOT EXISTS idx_liveness_attendance_log_id ON liveness_checks(att
 -- ============================================================
 -- 12. AUDIT LOGS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid REFERENCES organizations(id) ON DELETE CASCADE,
@@ -367,7 +316,6 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   user_agent text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_audit_logs_org_id ON audit_logs(organization_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
@@ -375,9 +323,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- ============================================================
--- 13. APP SETTINGS (org-level configuration)
+-- 13. APP SETTINGS
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS app_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL UNIQUE REFERENCES organizations(id) ON DELETE CASCADE,
@@ -400,14 +347,12 @@ CREATE TABLE IF NOT EXISTS app_settings (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_app_settings_org_id ON app_settings(organization_id);
 
 -- ============================================================
 -- UPDATED_AT TRIGGERS
 -- ============================================================
-
 DO $$
 DECLARE t text;
 BEGIN
@@ -425,7 +370,6 @@ END $$;
 -- ============================================================
 -- SEED DEFAULT ROLES
 -- ============================================================
-
 INSERT INTO roles (name, description, permissions) VALUES
   ('super_admin', 'Full system access across all organizations', '{"all": true}'::jsonb),
   ('org_admin', 'Full management access within their organization', '{"org_manage": true}'::jsonb),

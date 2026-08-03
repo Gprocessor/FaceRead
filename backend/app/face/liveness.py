@@ -1,11 +1,11 @@
 """
-Liveness detection using OpenCV + MediaPipe.
+Liveness detection using OpenCV heuristics.
 
 For the MVP, uses challenge-based liveness:
-- BLINK: detect eye blink via eye aspect ratio (EAR) using facial landmarks
-- TURN_HEAD_LEFT / TURN_HEAD_RIGHT: detect head pose change via MediaPipe
-- LOOK_STRAIGHT: verify face is centered and forward-facing
-- SMILE: detect smile via facial landmarks (optional)
+- BLINK: detect eye state changes across frames (eye cascade)
+- TURN_HEAD_LEFT / TURN_HEAD_RIGHT: detect horizontal face-center movement
+- LOOK_STRAIGHT: verify a face is centered and forward-facing
+- SMILE: detect a smile via the smile cascade (optional)
 
 MVP limitations:
 - Blink detection alone is not enough for production
@@ -19,7 +19,7 @@ import cv2
 import numpy as np
 
 from app.config import LIVENESS_THRESHOLD
-
+from app.face.detector import decode_image, detect_faces
 
 CHALLENGES = ["BLINK", "TURN_HEAD_LEFT", "TURN_HEAD_RIGHT", "LOOK_STRAIGHT"]
 
@@ -41,111 +41,153 @@ def get_random_challenge() -> dict:
     }
 
 
-def analyze_frames(
-    frames: list[bytes], challenge_type: str
-) -> dict:
+def _eye_cascade():
+    return cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+
+
+def _smile_cascade():
+    return cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_smile.xml")
+
+
+def _face_centers(frames_bgr: list[np.ndarray]) -> list[tuple[float, float]]:
+    """Return normalized (cx, cy) face centers across frames where a face is found."""
+    centers: list[tuple[float, float]] = []
+    for img in frames_bgr:
+        faces = detect_faces(img)
+        if not faces:
+            continue
+        x, y, w, h = faces[0]["box"]
+        H, W = img.shape[:2]
+        centers.append(((x + w / 2) / W, (y + h / 2) / H))
+    return centers
+
+
+def _eye_open_ratio(frames_bgr: list[np.ndarray]) -> list[int]:
+    """Count detected eyes per frame (proxy for blink: open eyes -> closed -> open)."""
+    eye = _eye_cascade()
+    counts: list[int] = []
+    for img in frames_bgr:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = detect_faces(img)
+        if not faces:
+            counts.append(0)
+            continue
+        x, y, w, h = faces[0]["box"]
+        roi = gray[y : y + h, x : x + w]
+        eyes = eye.detectMultiScale(roi, scaleFactor=1.1, minNeighbors=6, minSize=(15, 15))
+        counts.append(len(eyes))
+    return counts
+
+
+def _score_blink(frames_bgr: list[np.ndarray]) -> float:
+    counts = _eye_open_ratio(frames_bgr)
+    if not counts:
+        return 0.0
+    has_open = any(c >= 2 for c in counts)
+    has_fewer = any(c < 2 for c in counts)
+    variance = float(np.var(counts)) if len(counts) > 1 else 0.0
+    score = 0.0
+    if has_open:
+        score += 0.5
+    if has_open and has_fewer:
+        score += 0.3
+    score += min(0.2, variance / 4.0)
+    return max(0.0, min(1.0, score))
+
+
+def _score_turn(frames_bgr: list[np.ndarray], direction: str) -> float:
+    centers = _face_centers(frames_bgr)
+    if len(centers) < 2:
+        return 0.0
+    xs = [c[0] for c in centers]
+    spread = max(xs) - min(xs)
+    # Any meaningful horizontal movement counts; direction is a soft signal.
+    score = min(1.0, spread * 4.0)
+    return max(0.0, min(1.0, score))
+
+
+def _score_look_straight(frames_bgr: list[np.ndarray]) -> float:
+    centers = _face_centers(frames_bgr)
+    if not centers:
+        return 0.0
+    cx = float(np.mean([c[0] for c in centers]))
+    cy = float(np.mean([c[1] for c in centers]))
+    # Closer to center (0.5, 0.5) => higher score.
+    dist = ((cx - 0.5) ** 2 + (cy - 0.5) ** 2) ** 0.5
+    return max(0.0, min(1.0, 1.0 - dist * 2.0))
+
+
+def _score_smile(frames_bgr: list[np.ndarray]) -> float:
+    smile = _smile_cascade()
+    hits = 0
+    seen = 0
+    for img in frames_bgr:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = detect_faces(img)
+        if not faces:
+            continue
+        seen += 1
+        x, y, w, h = faces[0]["box"]
+        roi = gray[y + h // 2 : y + h, x : x + w]
+        smiles = smile.detectMultiScale(roi, scaleFactor=1.7, minNeighbors=20, minSize=(25, 25))
+        if len(smiles) > 0:
+            hits += 1
+    if seen == 0:
+        return 0.0
+    return max(0.0, min(1.0, hits / seen))
+
+
+def analyze_frames(frames: list[bytes], challenge_type: str) -> dict:
     """
     Analyze a sequence of frames for the given liveness challenge.
     Returns: {passed, liveness_score, failure_reason, frame_count, processing_time_ms}
     """
     start = time.time()
 
-    if len(frames) == 0:
+    decoded: list[np.ndarray] = []
+    for raw in frames:
+        img = decode_image(raw)
+        if img is not None:
+            decoded.append(img)
+
+    frame_count = len(decoded)
+    if frame_count == 0:
         return {
             "passed": False,
             "liveness_score": 0.0,
-            "failure_reason": "No frames received",
+            "failure_reason": "No valid frames received",
             "frame_count": 0,
             "processing_time_ms": int((time.time() - start) * 1000),
         }
 
-    frames_analyzed = 0
-    variation_scores = []
-
-    for frame_bytes in frames:
-        arr = np.frombuffer(frame_bytes, np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if img is None:
-            continue
-        frames_analyzed += 1
-
-        score = _analyze_single_frame(img, challenge_type)
-        variation_scores.append(score)
-
-    processing_ms = int((time.time() - start) * 1000)
-
-    if frames_analyzed == 0:
+    faces_seen = sum(1 for img in decoded if detect_faces(img))
+    if faces_seen == 0:
         return {
             "passed": False,
             "liveness_score": 0.0,
-            "failure_reason": "Could not decode any frames",
-            "frame_count": 0,
-            "processing_time_ms": processing_ms,
+            "failure_reason": "No face detected across submitted frames",
+            "frame_count": frame_count,
+            "processing_time_ms": int((time.time() - start) * 1000),
         }
 
-    # Liveness score = combination of frame variation and face presence
-    if len(variation_scores) < 2:
-        liveness_score = variation_scores[0] if variation_scores else 0.0
+    if challenge_type == "BLINK":
+        score = _score_blink(decoded)
+    elif challenge_type == "TURN_HEAD_LEFT":
+        score = _score_turn(decoded, "left")
+    elif challenge_type == "TURN_HEAD_RIGHT":
+        score = _score_turn(decoded, "right")
+    elif challenge_type == "LOOK_STRAIGHT":
+        score = _score_look_straight(decoded)
+    elif challenge_type == "SMILE":
+        score = _score_smile(decoded)
     else:
-        # reward variation between frames (real faces move; photos don't)
-        variation = np.std(variation_scores)
-        mean_score = np.mean(variation_scores)
-        liveness_score = float(min(1.0, mean_score * 0.6 + variation * 2.0))
+        score = _score_look_straight(decoded)
 
-    passed = liveness_score >= LIVENESS_THRESHOLD
-    failure_reason = None if passed else "Liveness score below threshold"
-
+    passed = score >= LIVENESS_THRESHOLD
     return {
         "passed": passed,
-        "liveness_score": liveness_score,
-        "failure_reason": failure_reason,
-        "frame_count": frames_analyzed,
-        "processing_time_ms": processing_ms,
+        "liveness_score": round(float(score), 4),
+        "failure_reason": None if passed else "Liveness challenge not satisfied",
+        "frame_count": frame_count,
+        "processing_time_ms": int((time.time() - start) * 1000),
     }
-
-
-def _analyze_single_frame(img: np.ndarray, challenge_type: str) -> float:
-    """
-    Analyze a single frame for liveness signals.
-    Returns a score [0, 1] indicating how likely this is a live face.
-    """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Face presence check
-    cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    )
-    faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
-    if len(faces) == 0:
-        return 0.0
-
-    # Basic texture / variance analysis (real faces have skin texture)
-    x, y, w, h = faces[0]
-    face_region = gray[y : y + h, x : x + w]
-    if face_region.size == 0:
-        return 0.0
-
-    # Laplacian variance — real faces have more texture than flat screens
-    laplacian_var = cv2.Laplacian(face_region, cv2.CV_64F).var()
-    texture_score = min(1.0, laplacian_var / 100.0)
-
-    # Color variance — real skin has natural color variation
-    face_color = img[y : y + h, x : x + w]
-    color_std = float(np.std(face_color)) / 128.0
-    color_score = min(1.0, color_std)
-
-    # Challenge-specific scoring
-    challenge_score = 0.5
-    if challenge_type == "LOOK_STRAIGHT":
-        # Face should be centered and relatively large
-        cx = x + w / 2
-        cy = y + h / 2
-        img_cx = img.shape[1] / 2
-        img_cy = img.shape[0] / 2
-        offset = abs(cx - img_cx) / img.shape[1] + abs(cy - img_cy) / img.shape[0]
-        challenge_score = max(0.0, 1.0 - offset * 2)
-    else:
-        # For movement challenges, base score on texture + color
-        challenge_score = (texture_score + color_score) / 2
-
-    return challenge_score

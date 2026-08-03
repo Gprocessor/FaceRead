@@ -4,8 +4,8 @@ operations (writing attendance logs, reading face profiles, audit trails).
 The service role key NEVER leaves this backend.
 """
 from supabase import create_client, Client
-from app.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
+from app.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 _client: Client | None = None
 

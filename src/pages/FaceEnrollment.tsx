@@ -80,9 +80,7 @@ export function FaceEnrollment() {
         `Face enrolled successfully for ${result.employee_id}. Status: ${result.enrollment_status}`
       );
       setEmployees((prev) =>
-        prev.map((e) =>
-          e.id === selectedId ? { ...e, face_enrolled: true } : e
-        )
+        prev.map((e) => (e.id === selectedId ? { ...e, face_enrolled: true } : e))
       );
     } else {
       throw new Error(result.message || 'Enrollment failed');
@@ -148,11 +146,10 @@ export function FaceEnrollment() {
                         Biometric Consent Required
                       </p>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        The selected employee must consent to having their facial
-                        biometric data collected and processed for attendance
-                        verification. This data will be stored as an encrypted
-                        mathematical embedding — not as a photograph — and can
-                        be revoked at any time.
+                        The selected employee must consent to having their facial biometric
+                        data collected and processed for attendance verification. This data
+                        will be stored as an encrypted mathematical embedding — not as a
+                        photograph — and can be revoked at any time.
                       </p>
                     </div>
                   </div>
@@ -161,7 +158,7 @@ export function FaceEnrollment() {
                     className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors flex items-center gap-2"
                   >
                     <ShieldCheck className="w-4 h-4" />
-                    Record Consent & Continue
+                    Record Consent &amp; Continue
                   </button>
                 </div>
               ) : (
