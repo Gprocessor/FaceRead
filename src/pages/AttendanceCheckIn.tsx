@@ -6,9 +6,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/services/supabaseClient';
 import { checkIn, checkOut, type CheckInOutResponse } from '@/services/attendanceService';
 import { getDeviceInfo, getLocation } from '@/utils/deviceInfo';
+import { PageHeader } from '@/components/AppShell';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 type Step = 'select' | 'liveness' | 'face' | 'result';
-
 export function AttendanceCheckIn() {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>('select');
@@ -28,7 +31,6 @@ export function AttendanceCheckIn() {
       setLoading(false);
     })();
   }, [user]);
-
   const handleLiveness = (sid: string) => { setLivenessSessionId(sid); setStep('face'); };
   const handleFace = async (blob: Blob) => {
     if (!employeeId || !livenessSessionId) return;
@@ -38,24 +40,22 @@ export function AttendanceCheckIn() {
     setResult(await fn(employeeId, blob, livenessSessionId, getDeviceInfo(), location ?? undefined));
     setStep('result');
   };
-
   const pill = (label: string, active: boolean, done: boolean) => (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${done ? 'bg-emerald-500/10 text-emerald-400' : active ? 'bg-sky-500/10 text-sky-400' : 'bg-slate-800 text-slate-500'}`}>{label}</span>
+    <Badge variant={done ? 'success' : active ? 'default' : 'outline'}>{label}</Badge>
   );
-
-  if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-sky-500 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>;
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div><h1 className="text-2xl font-bold text-slate-100">Attendance Check</h1><p className="text-sm text-slate-400 mt-1">Verify your identity with liveness detection and face recognition.</p></div>
-      <div className="flex items-center gap-2">{pill('Liveness', step === 'liveness', step === 'face' || step === 'result')}{pill('Face Verify', step === 'face', step === 'result')}{pill('Result', step === 'result', false)}</div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+    <div className="max-w-2xl">
+      <PageHeader title="Attendance Check" description="Verify identity with liveness detection and face recognition." />
+      <div className="flex items-center gap-2 mb-4">{pill('Liveness', step === 'liveness', step === 'face' || step === 'result')}{pill('Face Verify', step === 'face', step === 'result')}{pill('Result', step === 'result', false)}</div>
+      <Card className="p-5">
         {step === 'select' && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-400">Choose an action:</p>
+            <p className="text-sm text-muted-foreground">Choose an action:</p>
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => { setCheckType('check_in'); setStep('liveness'); }} className="flex flex-col items-center gap-3 p-6 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-sky-500 hover:bg-sky-500/5 transition-colors"><LogIn className="w-8 h-8 text-sky-400" /><span className="text-sm font-medium text-slate-200">Check In</span></button>
-              <button onClick={() => { setCheckType('check_out'); setStep('liveness'); }} className="flex flex-col items-center gap-3 p-6 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-emerald-500 hover:bg-emerald-500/5 transition-colors"><LogOut className="w-8 h-8 text-emerald-400" /><span className="text-sm font-medium text-slate-200">Check Out</span></button>
+              <button onClick={() => { setCheckType('check_in'); setStep('liveness'); }} className="flex flex-col items-center gap-3 p-6 rounded-xl border border-border bg-card hover:border-primary hover:bg-accent/40 transition-colors"><LogIn className="w-8 h-8 text-primary" /><span className="text-sm font-medium">Check In</span></button>
+              <button onClick={() => { setCheckType('check_out'); setStep('liveness'); }} className="flex flex-col items-center gap-3 p-6 rounded-xl border border-border bg-card hover:border-success hover:bg-success/10 transition-colors"><LogOut className="w-8 h-8 text-success" /><span className="text-sm font-medium">Check Out</span></button>
             </div>
           </div>
         )}
@@ -63,20 +63,20 @@ export function AttendanceCheckIn() {
         {step === 'face' && <FaceScanner onCapture={handleFace} title="Face Verification" subtitle="Look at the camera and capture to confirm your identity." buttonText="Verify & Submit" errorMessage={error} />}
         {step === 'result' && result && (
           <div className="space-y-4 text-center">
-            {result.success ? <CheckCircle2 className="w-14 h-14 mx-auto text-emerald-400" /> : <XCircle className="w-14 h-14 mx-auto text-rose-400" />}
-            <h3 className="text-lg font-semibold text-slate-100">{result.success ? `${checkType === 'check_in' ? 'Check-In' : 'Check-Out'} Successful` : 'Verification Failed'}</h3>
-            {result.duplicate && <div className="text-sm text-amber-400 bg-amber-500/10 rounded-lg p-3">You have already checked in today.</div>}
+            {result.success ? <CheckCircle2 className="w-14 h-14 mx-auto text-success" /> : <XCircle className="w-14 h-14 mx-auto text-destructive" />}
+            <h3 className="text-lg font-semibold text-display">{result.success ? `${checkType === 'check_in' ? 'Check-In' : 'Check-Out'} Successful` : 'Verification Failed'}</h3>
+            {result.duplicate && <div className="text-sm text-warning bg-warning/10 rounded-lg p-3">You have already checked in today.</div>}
             <div className="grid grid-cols-2 gap-3 text-left">
-              <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-500">Face Match</p><p className="text-lg font-semibold text-slate-100">{((result.face_match_score ?? 0) * 100).toFixed(1)}%</p></div>
-              <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-500">Liveness</p><p className="text-lg font-semibold text-slate-100">{((result.liveness_score ?? 0) * 100).toFixed(1)}%</p></div>
-              <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-500">Status</p><p className="text-sm font-medium text-slate-200 capitalize">{result.status}</p></div>
-              <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-500">Verification</p><p className="text-sm font-medium text-slate-200 capitalize">{result.verification_status}</p></div>
+              <div className="bg-muted/50 rounded-lg p-3"><p className="text-xs text-muted-foreground">Face Match</p><p className="text-lg font-semibold tnum">{((result.face_match_score ?? 0) * 100).toFixed(1)}%</p></div>
+              <div className="bg-muted/50 rounded-lg p-3"><p className="text-xs text-muted-foreground">Liveness</p><p className="text-lg font-semibold tnum">{((result.liveness_score ?? 0) * 100).toFixed(1)}%</p></div>
+              <div className="bg-muted/50 rounded-lg p-3"><p className="text-xs text-muted-foreground">Status</p><p className="text-sm font-medium capitalize">{result.status}</p></div>
+              <div className="bg-muted/50 rounded-lg p-3"><p className="text-xs text-muted-foreground">Verification</p><p className="text-sm font-medium capitalize">{result.verification_status}</p></div>
             </div>
-            <button onClick={() => { setStep('select'); setResult(null); setLivenessSessionId(null); setError(null); }} className="w-full mt-4 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-sm hover:bg-slate-700 transition-colors">Done</button>
+            <Button variant="secondary" className="w-full" onClick={() => { setStep('select'); setResult(null); setLivenessSessionId(null); setError(null); }}>Done</Button>
           </div>
         )}
-      </div>
-      <p className="text-xs text-slate-600">{new Date().toLocaleString()}</p>
+      </Card>
+      <p className="text-xs text-muted-foreground mt-3">{new Date().toLocaleString()}</p>
     </div>
   );
 }

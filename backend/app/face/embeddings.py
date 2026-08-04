@@ -1,20 +1,15 @@
-import json
-import numpy as np
-import cv2
+import json, numpy as np, cv2
 from app.config import FACE_MATCH_THRESHOLD
 def extract_embedding(face_image):
     try:
         import face_recognition
         rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
         enc = face_recognition.face_encodings(rgb)
-        if enc:
-            return enc[0].tolist()
-    except ImportError:
-        pass
+        if enc: return enc[0].tolist()
+    except ImportError: pass
     return _histogram(face_image)
 def _histogram(face):
-    r = cv2.resize(face, (128, 128))
-    hsv = cv2.cvtColor(r, cv2.COLOR_BGR2HSV)
+    r = cv2.resize(face, (128, 128)); hsv = cv2.cvtColor(r, cv2.COLOR_BGR2HSV)
     h = cv2.calcHist([hsv], [0], None, [32], [0, 180]).flatten()
     s = cv2.calcHist([hsv], [1], None, [32], [0, 256]).flatten()
     v = cv2.calcHist([hsv], [2], None, [32], [0, 256]).flatten()

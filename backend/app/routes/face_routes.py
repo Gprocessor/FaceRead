@@ -18,8 +18,7 @@ async def enroll_face(request: Request, employee_id: str = Form(...), consent_id
     if not rate_limiter.check(f"enroll:{profile['user_id']}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
     img = decode_image(await image.read())
-    if img is None:
-        raise HTTPException(status_code=400, detail="Invalid image data")
+    if img is None: raise HTTPException(status_code=400, detail="Invalid image data")
     faces = detect_faces(img)
     v = validate_single_face(faces, MAX_ALLOWED_FACES, MIN_FACE_CONFIDENCE)
     if not v["ok"]:
@@ -39,8 +38,7 @@ async def verify_face(request: Request, employee_id: str = Form(...), image: Upl
     if not rate_limiter.check(f"verify:{profile['user_id']}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
     img = decode_image(await image.read())
-    if img is None:
-        raise HTTPException(status_code=400, detail="Invalid image data")
+    if img is None: raise HTTPException(status_code=400, detail="Invalid image data")
     faces = detect_faces(img)
     v = validate_single_face(faces, MAX_ALLOWED_FACES, MIN_FACE_CONFIDENCE)
     if not v["ok"]:

@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { ScanFace, Mail, Lock, Loader2, AlertCircle, User } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function Login() {
   const { refresh } = useAuth();
@@ -24,51 +27,45 @@ export function Login() {
       } else {
         const { data, error: err } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
         if (err) throw err;
-        if (!data.session) { setInfo('Account created. Please check your email to confirm, then sign in.'); setMode('login'); setLoading(false); return; }
+        if (!data.session) { setInfo('Account created. Check your email to confirm, then sign in.'); setMode('login'); setLoading(false); return; }
       }
       await refresh(); navigate('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
-    } finally { setLoading(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Authentication failed'); } finally { setLoading(false); }
   };
 
-  const inp = 'w-full pl-10 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500';
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+    <div className="grid-blueprint min-h-screen flex items-center justify-center px-4 py-12 bg-background">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 mb-4"><ScanFace className="w-8 h-8 text-sky-400" /></div>
-          <h1 className="text-2xl font-bold text-slate-100">FaceAttend</h1>
-          <p className="text-sm text-slate-400 mt-1">Face Recognition Attendance System</p>
+        <div className="mb-8 flex flex-col items-center gap-2 text-center">
+          <span className="bg-primary text-primary-foreground flex size-11 items-center justify-center rounded-xl"><ScanFace className="size-6" /></span>
+          <h1 className="text-display text-2xl font-bold">FaceAttend</h1>
+          <p className="text-sm text-muted-foreground">Face Recognition Attendance System</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <div className="flex gap-1 p-1 bg-slate-800/60 rounded-lg mb-6">
-            <button onClick={() => setMode('login')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'login' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:text-slate-200'}`}>Sign In</button>
-            <button onClick={() => setMode('signup')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'signup' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:text-slate-200'}`}>Sign Up</button>
+        <div className="surface-panel p-6">
+          <div className="flex gap-1 p-1 bg-muted rounded-lg mb-6">
+            <button onClick={() => setMode('login')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'login' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>Sign In</button>
+            <button onClick={() => setMode('signup')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'signup' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>Sign Up</button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">Full Name</label>
-                <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" /><input value={fullName} onChange={(e) => setFullName(e.target.value)} required className={inp} placeholder="John Doe" /></div>
+              <div className="space-y-1.5">
+                <Label htmlFor="fn">Full Name</Label>
+                <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input id="fn" className="pl-9" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="John Doe" /></div>
               </div>
             )}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
-              <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={inp} placeholder="you@company.com" /></div>
+            <div className="space-y-1.5">
+              <Label htmlFor="em">Email</Label>
+              <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input id="em" type="email" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@company.com" /></div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
-              <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className={inp} placeholder="••••••••" /></div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pw">Password</Label>
+              <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input id="pw" type="password" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" /></div>
             </div>
-            {info && <div className="text-sm text-emerald-400 bg-emerald-500/10 rounded-lg p-3">{info}</div>}
-            {error && <div className="flex items-center gap-2 text-sm text-rose-400 bg-rose-500/10 rounded-lg p-3"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
-            <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'login' ? 'Sign In' : 'Create Account'}
-            </button>
+            {info && <div className="text-sm text-success bg-success/10 rounded-lg p-3">{info}</div>}
+            {error && <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
+            <Button type="submit" disabled={loading} className="w-full">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'login' ? 'Sign In' : 'Create Account'}</Button>
           </form>
-          <p className="text-[11px] text-slate-600 text-center mt-4">A profile is created automatically on sign-up. Biometric processing requires consent.</p>
+          <p className="text-[11px] text-muted-foreground text-center mt-4">A profile is created automatically on sign-up. Biometric processing requires consent.</p>
         </div>
       </div>
     </div>

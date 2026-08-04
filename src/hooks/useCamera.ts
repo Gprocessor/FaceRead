@@ -1,20 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-export interface CameraState {
-  stream: MediaStream | null;
-  error: string | null;
-  ready: boolean;
+export interface CameraState { stream: MediaStream | null; error: string | null; ready: boolean; }
+function canvasToBlob(c: HTMLCanvasElement): Promise<Blob | null> {
+  return new Promise((r) => c.toBlob((b) => r(b), 'image/jpeg', 0.85));
 }
-
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85));
-}
-
-/**
- * FIX: The <video> element (in CameraCapture) is ALWAYS mounted. We attach the
- * stream via a useEffect keyed on `stream`, so srcObject is never set on an
- * element that hasn't rendered yet — the previous cause of the black feed.
- */
 export function useCamera() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,59 +15,36 @@ export function useCamera() {
     if (stream) {
       v.srcObject = stream;
       const tryPlay = () => v.play().then(() => setReady(true)).catch(() => setReady(true));
-      if (v.readyState >= 1) tryPlay();
-      else v.onloadedmetadata = tryPlay;
-    } else {
-      v.srcObject = null;
-      setReady(false);
-    }
+      if (v.readyState >= 1) tryPlay(); else v.onloadedmetadata = tryPlay;
+    } else { v.srcObject = null; setReady(false); }
   }, [stream]);
 
   const startCamera = useCallback(async () => {
     setError(null);
     try {
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      });
-      setStream(s);
-      return s;
+      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      setStream(s); return s;
     } catch (err) {
-      const msg = err instanceof DOMException && err.name === 'NotAllowedError'
-        ? 'Camera permission denied. Please allow camera access in your browser settings.'
-        : 'Failed to access camera. Make sure no other app is using it.';
-      setError(msg);
-      setReady(false);
-      return null;
+      setError(err instanceof DOMException && err.name === 'NotAllowedError'
+        ? 'Camera permission denied. Allow camera access in your browser settings.'
+        : 'Failed to access camera. Make sure no other app is using it.');
+      setReady(false); return null;
     }
   }, []);
-
-  const stopCamera = useCallback(() => {
-    setStream((prev) => { prev?.getTracks().forEach((t) => t.stop()); return null; });
-  }, []);
-
+  const stopCamera = useCallback(() => { setStream((p) => { p?.getTracks().forEach((t) => t.stop()); return null; }); }, []);
   const captureFrame = useCallback(async (): Promise<Blob | null> => {
-    const video = videoRef.current;
-    if (!video || !video.videoWidth) return null;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvasToBlob(canvas);
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) return null;
+    const c = document.createElement('canvas');
+    c.width = v.videoWidth || 640; c.height = v.videoHeight || 480;
+    const ctx = c.getContext('2d'); if (!ctx) return null;
+    ctx.drawImage(v, 0, 0, c.width, c.height); return canvasToBlob(c);
   }, []);
-
-  const captureFrames = useCallback(async (count: number, intervalMs = 250): Promise<Blob[]> => {
-    const frames: Blob[] = [];
-    for (let i = 0; i < count; i++) {
-      const blob = await captureFrame();
-      if (blob) frames.push(blob);
-      if (i < count - 1) await new Promise((r) => setTimeout(r, intervalMs));
-    }
-    return frames;
+  const captureFrames = useCallback(async (count: number, ms = 250): Promise<Blob[]> => {
+    const f: Blob[] = [];
+    for (let i = 0; i < count; i++) { const b = await captureFrame(); if (b) f.push(b); if (i < count - 1) await new Promise((r) => setTimeout(r, ms)); }
+    return f;
   }, [captureFrame]);
-
   useEffect(() => () => { stream?.getTracks().forEach((t) => t.stop()); }, []); // eslint-disable-line
 
   const state: CameraState = { stream, error, ready };

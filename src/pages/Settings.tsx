@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { Loader2, Save, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
+import { PageHeader } from '@/components/AppShell';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface AppSettings {
   id?: string; late_threshold_minutes: number; work_start_time: string; work_end_time: string;
@@ -34,44 +39,49 @@ export function Settings() {
     finally { setSaving(false); }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-sky-500 animate-spin" /></div>;
-  if (!settings) return <div className="py-12 text-center text-sm text-slate-500">No settings available.</div>;
+  if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>;
+  if (!settings) return <Card className="p-12 text-center text-muted-foreground">No settings available.</Card>;
 
-  const f = 'w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500';
   const num = (label: string, key: keyof AppSettings, step = '1') => (
-    <div><label className="block text-xs font-medium text-slate-400 mb-1.5">{label}</label><input type="number" step={step} value={settings[key] as number} onChange={(e) => setSettings({ ...settings, [key]: +e.target.value })} className={f} /></div>
+    <div className="space-y-1.5"><Label>{label}</Label><Input type="number" step={step} value={settings[key] as number} onChange={(e) => setSettings({ ...settings, [key]: +e.target.value })} /></div>
   );
-
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div><h1 className="text-2xl font-bold text-slate-100">Settings</h1><p className="text-sm text-slate-400 mt-1">Configure attendance rules and verification thresholds for your organization.</p></div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-slate-300">Attendance Rules</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {num('Late Threshold (minutes)', 'late_threshold_minutes')}
-          {num('Duplicate Window (minutes)', 'duplicate_check_window_minutes')}
-          <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Work Start Time</label><input type="time" value={settings.work_start_time} onChange={(e) => setSettings({ ...settings, work_start_time: e.target.value })} className={f} /></div>
-          <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Work End Time</label><input type="time" value={settings.work_end_time} onChange={(e) => setSettings({ ...settings, work_end_time: e.target.value })} className={f} /></div>
+    <div className="max-w-3xl">
+      <PageHeader title="Settings" description="Configure attendance rules and verification thresholds" />
+      <div className="space-y-6">
+        <Card>
+          <CardHeader><CardTitle>Attendance Rules</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {num('Late Threshold (minutes)', 'late_threshold_minutes')}
+            {num('Duplicate Window (minutes)', 'duplicate_check_window_minutes')}
+            <div className="space-y-1.5"><Label>Work Start Time</Label><Input type="time" value={settings.work_start_time} onChange={(e) => setSettings({ ...settings, work_start_time: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Work End Time</Label><Input type="time" value={settings.work_end_time} onChange={(e) => setSettings({ ...settings, work_end_time: e.target.value })} /></div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Verification Thresholds</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {num('Face Match Threshold', 'face_match_threshold', '0.05')}
+            {num('Liveness Threshold', 'liveness_threshold', '0.05')}
+            {num('Min Face Confidence', 'min_face_confidence', '0.05')}
+            {num('Max Allowed Faces', 'max_allowed_faces')}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Feature Toggles</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {([['require_liveness', 'Require liveness detection'], ['require_check_out', 'Require check-out'], ['allow_multiple_check_in', 'Allow multiple check-ins per day'], ['geofencing_enabled', 'Enable geofencing']] as const).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-3 text-sm">
+                <input type="checkbox" checked={settings[key] as boolean} onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })} className="w-4 h-4 rounded border-input accent-[var(--primary)]" />
+                {label}
+              </label>
+            ))}
+          </CardContent>
+        </Card>
+        <div className="flex items-center gap-3">
+          <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Save Settings</Button>
+          {saved && <span className="flex items-center gap-1 text-sm text-success"><CheckCircle2 className="w-4 h-4" />Saved</span>}
         </div>
-      </div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-slate-300">Verification Thresholds</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {num('Face Match Threshold', 'face_match_threshold', '0.05')}
-          {num('Liveness Threshold', 'liveness_threshold', '0.05')}
-          {num('Min Face Confidence', 'min_face_confidence', '0.05')}
-          {num('Max Allowed Faces', 'max_allowed_faces')}
-        </div>
-      </div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-300">Feature Toggles</h3>
-        {([['require_liveness', 'Require liveness detection'], ['require_check_out', 'Require check-out'], ['allow_multiple_check_in', 'Allow multiple check-ins per day'], ['geofencing_enabled', 'Enable geofencing']] as const).map(([key, label]) => (
-          <label key={key} className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={settings[key] as boolean} onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })} className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-sky-500 focus:ring-sky-500 focus:ring-offset-0" />{label}</label>
-        ))}
-      </div>
-      <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 disabled:opacity-50 transition-colors flex items-center gap-2">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Save Settings</button>
-        {saved && <span className="flex items-center gap-1 text-sm text-emerald-400"><CheckCircle2 className="w-4 h-4" />Saved</span>}
       </div>
     </div>
   );

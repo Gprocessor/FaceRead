@@ -1,26 +1,20 @@
 import { type ReactNode } from 'react';
 import { Camera, CameraOff } from 'lucide-react';
 
-interface CameraCaptureProps {
-  videoRef: React.RefObject<HTMLVideoElement>;
-  ready: boolean;
-  error?: string | null;
-  overlay?: ReactNode;
-  className?: string;
-}
-
-/** The <video> is ALWAYS rendered; placeholder is an overlay layer, not a replacement. */
-export function CameraCapture({ videoRef, ready, error, overlay, className = '' }: CameraCaptureProps) {
+/** The <video> is ALWAYS mounted; placeholder is an overlay so the stream always binds. */
+export function CameraCapture({ videoRef, ready, error, overlay, className = '' }: {
+  videoRef: React.RefObject<HTMLVideoElement>; ready: boolean; error?: string | null; overlay?: ReactNode; className?: string;
+}) {
   return (
-    <div className={`relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 ${className}`}>
+    <div className={`relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-background border border-border ${ready ? 'scan-glow' : ''} ${className}`}>
       <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
       {ready && overlay}
       {!ready && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-500 bg-slate-900/80">
+        <div className="absolute inset-0 grid-blueprint flex flex-col items-center justify-center gap-3 text-muted-foreground bg-background/80">
           {error ? (
-            <><CameraOff className="w-10 h-10 text-rose-400" /><p className="text-sm text-rose-400 text-center px-6">{error}</p></>
+            <><CameraOff className="w-10 h-10 text-destructive" /><p className="text-sm text-destructive text-center px-6">{error}</p></>
           ) : (
-            <><Camera className="w-10 h-10" /><p className="text-sm">Camera is off</p><p className="text-xs text-slate-600">Click "Start Camera" to begin</p></>
+            <><Camera className="w-10 h-10 text-primary" /><p className="text-sm">Camera is off</p><p className="text-xs">Click "Start Camera" to begin</p></>
           )}
         </div>
       )}

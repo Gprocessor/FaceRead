@@ -6,14 +6,12 @@ export class ApiError extends Error {
   status: number; detail: unknown;
   constructor(message: string, status: number, detail?: unknown) { super(message); this.name = 'ApiError'; this.status = status; this.detail = detail; }
 }
-
 async function authHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
   return h;
 }
-
 export async function apiRequest<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers: { ...headers, ...(options.headers as Record<string, string>) } });
@@ -22,7 +20,6 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
   if (!res.ok) throw new ApiError((body as { detail?: string })?.detail || (body as { message?: string })?.message || `Request failed (${res.status})`, res.status, body);
   return body as T;
 }
-
 export async function apiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = {};

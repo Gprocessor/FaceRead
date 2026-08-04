@@ -2,13 +2,14 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { Employees } from '@/pages/Employees';
+import { Departments } from '@/pages/Departments';
 import { FaceEnrollment } from '@/pages/FaceEnrollment';
 import { AttendanceCheckIn } from '@/pages/AttendanceCheckIn';
 import { AttendanceHistory } from '@/pages/AttendanceHistory';
 import { Reports } from '@/pages/Reports';
 import { AuditLogs } from '@/pages/AuditLogs';
 import { Settings } from '@/pages/Settings';
-import { AdminLayout } from '@/components/AdminLayout';
+import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 function App() {
@@ -16,9 +17,10 @@ function App() {
     <HashRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+        <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/employees" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'hr_officer']}><Employees /></ProtectedRoute>} />
+          <Route path="/departments" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'hr_officer']}><Departments /></ProtectedRoute>} />
           <Route path="/face-enrollment" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'hr_officer']}><FaceEnrollment /></ProtectedRoute>} />
           <Route path="/attendance" element={<AttendanceCheckIn />} />
           <Route path="/attendance/history" element={<AttendanceHistory />} />
@@ -32,5 +34,4 @@ function App() {
     </HashRouter>
   );
 }
-
 export default App;

@@ -6,15 +6,13 @@ from app.models.schemas import CreateEmployeeRequest
 from app.utils.audit import log_audit
 from app.utils.security import sanitize_string, validate_employee_code
 router = APIRouter()
-
 @router.get("/api/admin/employees")
 async def list_employees(request: Request):
     profile = get_user_profile(request)
     check_permission(profile, "super_admin", "org_admin", "hr_officer", "supervisor")
     sb = get_supabase()
     q = sb.table("employees").select("id, employee_code, full_name, email, status, departments(name)")
-    if profile["role"] != "super_admin":
-        q = q.eq("organization_id", profile["organization_id"])
+    if profile["role"] != "super_admin": q = q.eq("organization_id", profile["organization_id"])
     result = q.order("full_name").execute()
     employees = []
     for e in result.data or []:
@@ -23,7 +21,6 @@ async def list_employees(request: Request):
         c = sb.table("face_profiles").select("id", count="exact", head=True).eq("employee_id", emp["id"]).eq("is_active", True).execute()
         emp["face_enrolled"] = (c.count or 0) > 0
     return employees
-
 @router.post("/api/admin/employees")
 async def create_employee(request: Request, body: CreateEmployeeRequest):
     profile = get_user_profile(request)
@@ -35,8 +32,7 @@ async def create_employee(request: Request, body: CreateEmployeeRequest):
     sb = get_supabase()
     data = {"organization_id": profile["organization_id"], "employee_code": body.employee_code, "full_name": sanitize_string(body.full_name), "email": sanitize_string(body.email), "phone": sanitize_string(body.phone or ""), "position": sanitize_string(body.position or ""), "department_id": body.department_id or None, "hire_date": body.hire_date or None, "created_by": profile["user_id"]}
     result = sb.table("employees").insert(data).execute()
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to create employee")
+    if not result.data: raise HTTPException(status_code=500, detail="Failed to create employee")
     emp_id = result.data[0]["id"]
     log_audit(profile["organization_id"], profile["user_id"], profile["role"], "employee_created", "employee", emp_id, {"employee_code": body.employee_code, "full_name": body.full_name})
     return {"success": True, "employee_id": emp_id, "message": "Employee created successfully"}

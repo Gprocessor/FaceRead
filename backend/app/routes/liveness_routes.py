@@ -1,5 +1,4 @@
-import uuid
-import json
+import uuid, json
 from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException
 from app.auth.jwt_validator import get_user_profile
 from app.face.liveness import get_random_challenge, analyze_frames
@@ -13,8 +12,7 @@ async def get_challenge(request: Request):
     profile = get_user_profile(request)
     if not rate_limiter.check(f"liveness_challenge:{profile['user_id']}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
-    ch = get_random_challenge()
-    sid = str(uuid.uuid4())
+    ch = get_random_challenge(); sid = str(uuid.uuid4())
     _liveness_sessions[sid] = {"user_id": profile["user_id"], "challenge_type": ch["challenge_type"], "passed": False}
     return {"challenge_type": ch["challenge_type"], "instruction": ch["instruction"], "session_id": sid}
 
@@ -38,6 +36,5 @@ async def check_liveness(request: Request, session_id: str = Form(...), challeng
         org_id = profile.get("organization_id")
         if emp.data and org_id:
             sb.table("liveness_checks").insert({"organization_id": org_id, "employee_id": emp.data["id"], "challenge_type": challenge_type, "liveness_score": result["liveness_score"], "passed": result["passed"], "failure_reason": result["failure_reason"], "frame_count": result["frame_count"], "processing_time_ms": result["processing_time_ms"], "device_info": json.loads(device_info) if device_info else {}}).execute()
-    except Exception:
-        pass
+    except Exception: pass
     return {"passed": result["passed"], "challenge_type": challenge_type, "liveness_score": result["liveness_score"], "failure_reason": result["failure_reason"], "frame_count": result["frame_count"], "processing_time_ms": result["processing_time_ms"], "session_id": session_id}

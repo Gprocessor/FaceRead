@@ -12,7 +12,7 @@ export async function getLocation(): Promise<{ latitude: number; longitude: numb
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      () => resolve(null), { timeout: 5000, maximumAge: 60000 }
+      () => resolve(null), { timeout: 5000, maximumAge: 60000 },
     );
   });
 }

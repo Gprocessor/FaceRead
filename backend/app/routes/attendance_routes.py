@@ -18,8 +18,7 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
     sb = get_supabase()
     emp = sb.table("employees").select("*").eq("id", employee_id).maybe_single().execute()
-    if not emp.data:
-        raise HTTPException(status_code=404, detail="Employee not found")
+    if not emp.data: raise HTTPException(status_code=404, detail="Employee not found")
     org_id = emp.data["organization_id"]
     settings = get_org_settings(org_id)
     if should_reject_duplicate(settings, check_type):
@@ -27,8 +26,7 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
         if existing:
             return {"success": False, "employee_id": employee_id, "attendance_log_id": existing["id"], "attendance_session_id": "", "check_type": check_type, "status": existing["status"], "verification_status": "rejected", "face_match_score": 0.0, "liveness_score": 0.0, "message": f"Duplicate {check_type.replace('_', '-')} detected for today", "duplicate": True}
     img = decode_image(await image.read())
-    if img is None:
-        raise HTTPException(status_code=400, detail="Invalid image data")
+    if img is None: raise HTTPException(status_code=400, detail="Invalid image data")
     faces = detect_faces(img)
     v = validate_single_face(faces, settings.get("max_allowed_faces", 1), settings.get("min_face_confidence", 0.7))
     if not v["ok"]:
@@ -40,8 +38,7 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
     if not fr["verified"]:
         status_val, verification_val = "failed_verification", "failed"
     else:
-        status_val = determine_status(check_type, datetime.now(), settings)
-        verification_val = "verified"
+        status_val = determine_status(check_type, datetime.now(), settings); verification_val = "verified"
     log_data = {"organization_id": org_id, "employee_id": employee_id, "attendance_date": date.today().isoformat(), "check_type": check_type, "status": status_val, "face_match_score": fr["score"], "liveness_score": liveness_score, "verification_status": verification_val, "face_profile_id": fr.get("face_profile_id"), "device_info": json.loads(device_info) if device_info else {}, "location_latitude": float(latitude) if latitude else None, "location_longitude": float(longitude) if longitude else None}
     log_data["check_in_time" if check_type == "check_in" else "check_out_time"] = datetime.now().isoformat()
     log_res = sb.table("attendance_logs").insert(log_data).execute()
@@ -50,8 +47,7 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
     if verification_val == "verified":
         now = datetime.now()
         session_id = create_attendance_session(org_id, employee_id, date.today(), status_val, now if check_type == "check_in" else None, now if check_type == "check_out" else None)
-        if session_id:
-            sb.table("attendance_logs").update({"attendance_session_id": session_id}).eq("id", log_id).execute()
+        if session_id: sb.table("attendance_logs").update({"attendance_session_id": session_id}).eq("id", log_id).execute()
     if fr.get("face_profile_id"):
         sb.table("face_profiles").update({"last_verified_at": "now()"}).eq("id", fr["face_profile_id"]).execute()
     log_audit(org_id, profile["user_id"], profile["role"], f"attendance_{check_type}", "attendance_log", log_id, {"employee_id": employee_id, "status": status_val, "face_score": fr["score"], "liveness_score": liveness_score})
@@ -70,8 +66,7 @@ async def get_history(request: Request, employee_id: str | None = Query(None), d
     profile = get_user_profile(request)
     sb = get_supabase()
     q = sb.table("attendance_logs").select("*")
-    if profile["role"] != "super_admin":
-        q = q.eq("organization_id", profile["organization_id"])
+    if profile["role"] != "super_admin": q = q.eq("organization_id", profile["organization_id"])
     if employee_id: q = q.eq("employee_id", employee_id)
     if date_from: q = q.gte("attendance_date", date_from)
     if date_to: q = q.lte("attendance_date", date_to)
@@ -83,8 +78,7 @@ async def get_reports(request: Request, date_from: str | None = Query(None), dat
     from app.auth.permissions import check_permission
     check_permission(profile, "super_admin", "org_admin", "hr_officer", "supervisor")
     sb = get_supabase()
-    org_id = profile["organization_id"]
-    today = date.today().isoformat()
+    org_id = profile["organization_id"]; today = date.today().isoformat()
     emp_count = sb.table("employees").select("id", count="exact").eq("organization_id", org_id).eq("status", "active").execute()
     total = emp_count.count or 0
     sessions = sb.table("attendance_sessions").select("*").eq("organization_id", org_id).eq("attendance_date", today).execute().data or []

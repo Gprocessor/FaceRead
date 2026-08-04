@@ -5,6 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/services/supabaseClient';
 import { enrollFace } from '@/services/faceService';
 import { getDeviceInfo } from '@/utils/deviceInfo';
+import { PageHeader } from '@/components/AppShell';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 export function FaceEnrollment() {
   const { user } = useAuth();
@@ -42,7 +46,6 @@ export function FaceEnrollment() {
       setConsentId(data.id); setConsentGiven(true);
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to record consent'); }
   };
-
   const handleEnroll = async (imageBlob: Blob) => {
     if (!selectedId || !consentId) return;
     setError(null); setSuccess(null);
@@ -52,40 +55,40 @@ export function FaceEnrollment() {
       setEmployees((prev) => prev.map((e) => (e.id === selectedId ? { ...e, face_enrolled: true } : e)));
     } else { throw new Error(result.message || 'Enrollment failed'); }
   };
-
   const selected = employees.find((e) => e.id === selectedId);
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div><h1 className="text-2xl font-bold text-slate-100">Face Enrollment</h1><p className="text-sm text-slate-400 mt-1">Enroll employee faces for biometric attendance verification. Consent is required.</p></div>
-      {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-sky-500 animate-spin" /></div> : (
-        <>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Select Employee</label>
-            <select value={selectedId ?? ''} onChange={(e) => { setSelectedId(e.target.value); setConsentGiven(false); setConsentId(null); setSuccess(null); setError(null); }} className="w-full max-w-md px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-sky-500">
+    <div className="max-w-3xl">
+      <PageHeader title="Face Enrollment" description="Enroll employee faces for biometric attendance. Consent is required first." />
+      {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div> : (
+        <div className="space-y-6">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-muted-foreground">Select Employee</label>
+            <select value={selectedId ?? ''} onChange={(e) => { setSelectedId(e.target.value); setConsentGiven(false); setConsentId(null); setSuccess(null); setError(null); }}
+              className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
               <option value="">— Select an employee —</option>
               {employees.map((e) => <option key={e.id} value={e.id}>{e.full_name} ({e.employee_code}){e.face_enrolled ? ' ✓' : ''}</option>)}
             </select>
           </div>
           {selected && (
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-              {selected.face_enrolled && <div className="flex items-center gap-2 text-sm text-emerald-400 mb-4"><CheckCircle2 className="w-5 h-5" />This employee is already face-enrolled. Re-enrolling will update the profile.</div>}
+            <Card className="p-5 space-y-4">
+              {selected.face_enrolled && <div className="flex items-center gap-2 text-sm text-success"><CheckCircle2 className="w-5 h-5" />Already enrolled — re-enrolling updates the profile. <Badge variant="success">Enrolled</Badge></div>}
               {!consentGiven ? (
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 bg-sky-500/5 border border-sky-500/20 rounded-lg p-4">
-                    <ShieldCheck className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-                    <div><p className="text-sm text-slate-200 font-medium mb-1">Biometric Consent Required</p><p className="text-xs text-slate-400 leading-relaxed">The selected employee must consent to having their facial biometric data collected and processed. Data is stored as an encrypted mathematical embedding — not a photograph — and can be revoked at any time.</p></div>
+                  <div className="flex items-start gap-3 bg-accent/40 border border-border rounded-lg p-4">
+                    <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <div><p className="text-sm font-medium mb-1">Biometric Consent Required</p><p className="text-xs text-muted-foreground leading-relaxed">Data is stored as an encrypted mathematical embedding — not a photograph — and can be revoked at any time.</p></div>
                   </div>
-                  <button onClick={handleConsent} className="px-4 py-2 rounded-lg bg-sky-500 text-slate-950 font-medium text-sm hover:bg-sky-400 transition-colors flex items-center gap-2"><ShieldCheck className="w-4 h-4" />Record Consent &amp; Continue</button>
+                  <Button onClick={handleConsent}><ShieldCheck className="w-4 h-4" />Record Consent &amp; Continue</Button>
                 </div>
               ) : (
-                <FaceScanner onCapture={handleEnroll} title="Face Enrollment" subtitle="Position the face within the oval and capture." buttonText="Enroll Face" successMessage={success ?? undefined} errorMessage={error} />
+                <FaceScanner onCapture={handleEnroll} title="Capture face" subtitle="Position the face within the oval and capture." buttonText="Enroll Face" successMessage={success ?? undefined} errorMessage={error} />
               )}
-              {error && <div className="mt-4 flex items-center gap-2 text-sm text-rose-400"><AlertCircle className="w-4 h-4" />{error}</div>}
-            </div>
+              {error && <div className="flex items-center gap-2 text-sm text-destructive"><AlertCircle className="w-4 h-4" />{error}</div>}
+            </Card>
           )}
-          {!selected && <div className="flex flex-col items-center py-12 text-slate-500"><ScanFace className="w-12 h-12 mb-3" /><p className="text-sm">Select an employee to begin face enrollment</p></div>}
-        </>
+          {!selected && <Card className="p-12 text-center text-muted-foreground"><ScanFace className="w-12 h-12 mx-auto mb-3" />Select an employee to begin face enrollment</Card>}
+        </div>
       )}
     </div>
   );

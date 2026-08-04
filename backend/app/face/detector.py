@@ -1,5 +1,4 @@
-import cv2
-import numpy as np
+import cv2, numpy as np
 def decode_image(image_bytes: bytes):
     arr = np.frombuffer(image_bytes, np.uint8)
     return cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -12,11 +11,8 @@ def extract_face_region(image, box):
     x, y, w, h = box
     return image[y:y+h, x:x+w]
 def validate_single_face(faces, max_allowed=1, min_confidence=0.7):
-    if len(faces) == 0:
-        return {"ok": False, "face": None, "error": "No face detected in the image"}
-    if len(faces) > max_allowed:
-        return {"ok": False, "face": None, "error": f"Multiple faces detected ({len(faces)}). Only one person allowed."}
+    if len(faces) == 0: return {"ok": False, "face": None, "error": "No face detected in the image"}
+    if len(faces) > max_allowed: return {"ok": False, "face": None, "error": f"Multiple faces detected ({len(faces)}). Only one person allowed."}
     face = faces[0]
-    if face["confidence"] < min_confidence:
-        return {"ok": False, "face": None, "error": f"Face confidence too low ({face['confidence']:.2f})"}
+    if face["confidence"] < min_confidence: return {"ok": False, "face": None, "error": f"Face confidence too low ({face['confidence']:.2f})"}
     return {"ok": True, "face": face, "error": None}
