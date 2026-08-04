@@ -2,12 +2,8 @@ import type { ReactNode } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface DashboardCardProps {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon?: ReactNode;
-  trend?: 'up' | 'down' | 'neutral';
-  accent?: 'sky' | 'emerald' | 'amber' | 'rose' | 'slate';
+  title: string; value: string | number; subtitle?: string; icon?: ReactNode;
+  trend?: 'up' | 'down' | 'neutral'; accent?: 'sky' | 'emerald' | 'amber' | 'rose' | 'slate';
 }
 
 const accentMap = {
@@ -31,11 +27,7 @@ export function DashboardCard({ title, value, subtitle, icon, trend, accent = 's
       </div>
       {trend && (
         <div className="mt-3 flex items-center gap-1 text-xs">
-          {trend === 'up' ? (
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-          ) : trend === 'down' ? (
-            <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
-          ) : null}
+          {trend === 'up' ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : trend === 'down' ? <TrendingDown className="w-3.5 h-3.5 text-rose-400" /> : null}
         </div>
       )}
     </div>

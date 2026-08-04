@@ -1,25 +1,19 @@
 """
-Token validation — verifies Supabase-issued tokens by calling Supabase's
-/auth/v1/user endpoint (algorithm-agnostic: works with the new ES256/JWKS
-keys AND the legacy HS256 secret). Avoids brittle local jwt.decode.
-
-FIX: If a validated user has no row in `profiles` yet (e.g. signed up before
-the DB trigger existed, or trigger disabled), we auto-create a minimal
-profile so the app never dead-ends on "Profile not found".
+Token validation via Supabase /auth/v1/user (algorithm-agnostic: works with
+new ES256/JWKS keys AND legacy HS256 secret). Auto-creates a profile if one
+is missing so requests never dead-end on "Profile not found".
 """
 import json
 import urllib.request
 import urllib.error
 from fastapi import HTTPException, status, Request
-
 from app.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 
 def _extract_token(request: Request) -> str:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Missing or invalid Authorization header")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid Authorization header")
     return auth[7:]
 
 
@@ -27,34 +21,25 @@ def _validate_with_supabase(token: str) -> dict:
     if not SUPABASE_URL:
         raise HTTPException(status_code=500, detail="SUPABASE_URL not configured")
     apikey = SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY
-    url = f"{SUPABASE_URL}/auth/v1/user"
-    req = urllib.request.Request(url)
+    req = urllib.request.Request(f"{SUPABASE_URL}/auth/v1/user")
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("apikey", apikey)
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Invalid or expired token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
     except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Could not validate token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate token")
 
 
 def validate_jwt(request: Request) -> dict:
-    token = _extract_token(request)
-    user = _validate_with_supabase(token)
+    user = _validate_with_supabase(_extract_token(request))
     uid = user.get("id")
     if not uid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing user ID")
     meta = user.get("user_metadata") or {}
-    return {
-        "sub": uid,
-        "email": user.get("email", ""),
-        "full_name": meta.get("full_name"),
-        "role": user.get("role", "authenticated"),
-    }
+    return {"sub": uid, "email": user.get("email", ""), "full_name": meta.get("full_name"), "role": user.get("role", "authenticated")}
 
 
 def get_user_id(request: Request) -> str:
@@ -62,24 +47,17 @@ def get_user_id(request: Request) -> str:
 
 
 def _ensure_profile(uid: str, email: str, full_name: str | None) -> dict:
-    """Create a minimal profile if one does not exist. Returns the profile."""
     from app.database.supabase_client import get_supabase
     sb = get_supabase()
     res = sb.table("profiles").select("*").eq("user_id", uid).maybe_single().execute()
     if res.data:
         return res.data
-    # Auto-create so first-time users are never blocked.
-    insert = sb.table("profiles").insert({
-        "user_id": uid,
-        "email": email,
+    ins = sb.table("profiles").insert({
+        "user_id": uid, "email": email,
         "full_name": full_name or (email.split("@")[0] if email else "New User"),
-        "role": "employee",
-        "status": "active",
+        "role": "employee", "status": "active",
     }).execute()
-    return insert.data[0] if insert.data else {
-        "user_id": uid, "email": email, "full_name": full_name,
-        "role": "employee", "organization_id": None, "status": "active",
-    }
+    return ins.data[0] if ins.data else {"user_id": uid, "email": email, "full_name": full_name, "role": "employee", "organization_id": None, "status": "active"}
 
 
 def get_user_profile(request: Request) -> dict:
@@ -89,8 +67,7 @@ def get_user_profile(request: Request) -> dict:
     if profile.get("status") not in (None, "active"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")
     return {
-        "user_id": uid,
-        "email": payload.get("email", profile.get("email", "")),
+        "user_id": uid, "email": payload.get("email", profile.get("email", "")),
         "role": profile.get("role", "employee"),
         "organization_id": profile.get("organization_id"),
         "full_name": profile.get("full_name"),

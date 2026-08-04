@@ -1,10 +1,6 @@
-"""Supabase client (service role) — bypasses RLS for server-side ops."""
 from supabase import create_client, Client
 from app.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-
 _client: Client | None = None
-
-
 def get_supabase() -> Client:
     global _client
     if _client is None:

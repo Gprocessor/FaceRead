@@ -1,17 +1,10 @@
 import { supabase } from './supabaseClient';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 if (!API_BASE_URL) throw new Error('Missing VITE_API_BASE_URL in .env');
 
 export class ApiError extends Error {
-  status: number;
-  detail: unknown;
-  constructor(message: string, status: number, detail?: unknown) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.detail = detail;
-  }
+  status: number; detail: unknown;
+  constructor(message: string, status: number, detail?: unknown) { super(message); this.name = 'ApiError'; this.status = status; this.detail = detail; }
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -26,10 +19,7 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
   const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers: { ...headers, ...(options.headers as Record<string, string>) } });
   let body: unknown = null;
   if (res.headers.get('content-type')?.includes('application/json')) body = await res.json();
-  if (!res.ok) {
-    const m = (body as { detail?: string })?.detail || (body as { message?: string })?.message || `Request failed (${res.status})`;
-    throw new ApiError(m, res.status, body);
-  }
+  if (!res.ok) throw new ApiError((body as { detail?: string })?.detail || (body as { message?: string })?.message || `Request failed (${res.status})`, res.status, body);
   return body as T;
 }
 
@@ -40,9 +30,6 @@ export async function apiUpload<T = unknown>(path: string, formData: FormData): 
   const res = await fetch(`${API_BASE_URL}${path}`, { method: 'POST', headers, body: formData });
   let body: unknown = null;
   if (res.headers.get('content-type')?.includes('application/json')) body = await res.json();
-  if (!res.ok) {
-    const m = (body as { detail?: string })?.detail || `Upload failed (${res.status})`;
-    throw new ApiError(m, res.status, body);
-  }
+  if (!res.ok) throw new ApiError((body as { detail?: string })?.detail || `Upload failed (${res.status})`, res.status, body);
   return body as T;
 }

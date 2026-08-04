@@ -7,25 +7,16 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   const loadUser = useCallback(async () => {
-    const u = await getCurrentUser();
-    setUser(u);
+    setUser(await getCurrentUser());
     setLoading(false);
   }, []);
 
   useEffect(() => {
     loadUser();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      (async () => {
-        await loadUser();
-      })();
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange(() => { (async () => { await loadUser(); })(); });
     return () => sub.subscription.unsubscribe();
   }, [loadUser]);
 
-  const logout = useCallback(async () => {
-    await signOut();
-    setUser(null);
-  }, []);
-
+  const logout = useCallback(async () => { await signOut(); setUser(null); }, []);
   return { user, loading, logout, refresh: loadUser };
 }

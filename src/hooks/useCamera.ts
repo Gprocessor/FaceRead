@@ -7,19 +7,13 @@ export interface CameraState {
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85);
-  });
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85));
 }
 
 /**
- * Camera hook.
- *
- * FIX: The video element is kept mounted at all times by the CameraCapture
- * component. We attach the MediaStream to the video element via a useEffect
- * that runs whenever the stream changes — this avoids the previous bug where
- * srcObject was set on a video element that had not been rendered yet
- * (because it was gated behind `ready === true`), resulting in a black feed.
+ * FIX: The <video> element (in CameraCapture) is ALWAYS mounted. We attach the
+ * stream via a useEffect keyed on `stream`, so srcObject is never set on an
+ * element that hasn't rendered yet — the previous cause of the black feed.
  */
 export function useCamera() {
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -27,25 +21,14 @@ export function useCamera() {
   const [ready, setReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Attach (or detach) the stream whenever it changes.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     if (stream) {
       v.srcObject = stream;
-      const tryPlay = () =>
-        v
-          .play()
-          .then(() => setReady(true))
-          .catch(() => {
-            // Autoplay may be blocked until user gesture; still mark ready
-            setReady(true);
-          });
-      if (v.readyState >= 1) {
-        tryPlay();
-      } else {
-        v.onloadedmetadata = tryPlay;
-      }
+      const tryPlay = () => v.play().then(() => setReady(true)).catch(() => setReady(true));
+      if (v.readyState >= 1) tryPlay();
+      else v.onloadedmetadata = tryPlay;
     } else {
       v.srcObject = null;
       setReady(false);
@@ -62,10 +45,9 @@ export function useCamera() {
       setStream(s);
       return s;
     } catch (err) {
-      const msg =
-        err instanceof DOMException && err.name === 'NotAllowedError'
-          ? 'Camera permission denied. Please allow camera access in your browser settings.'
-          : 'Failed to access camera. Make sure no other app is using it.';
+      const msg = err instanceof DOMException && err.name === 'NotAllowedError'
+        ? 'Camera permission denied. Please allow camera access in your browser settings.'
+        : 'Failed to access camera. Make sure no other app is using it.';
       setError(msg);
       setReady(false);
       return null;
@@ -73,10 +55,7 @@ export function useCamera() {
   }, []);
 
   const stopCamera = useCallback(() => {
-    setStream((prev) => {
-      prev?.getTracks().forEach((t) => t.stop());
-      return null;
-    });
+    setStream((prev) => { prev?.getTracks().forEach((t) => t.stop()); return null; });
   }, []);
 
   const captureFrame = useCallback(async (): Promise<Blob | null> => {
@@ -91,27 +70,17 @@ export function useCamera() {
     return canvasToBlob(canvas);
   }, []);
 
-  const captureFrames = useCallback(
-    async (count: number, intervalMs = 250): Promise<Blob[]> => {
-      const frames: Blob[] = [];
-      for (let i = 0; i < count; i++) {
-        const blob = await captureFrame();
-        if (blob) frames.push(blob);
-        if (i < count - 1) await new Promise((r) => setTimeout(r, intervalMs));
-      }
-      return frames;
-    },
-    [captureFrame]
-  );
+  const captureFrames = useCallback(async (count: number, intervalMs = 250): Promise<Blob[]> => {
+    const frames: Blob[] = [];
+    for (let i = 0; i < count; i++) {
+      const blob = await captureFrame();
+      if (blob) frames.push(blob);
+      if (i < count - 1) await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return frames;
+  }, [captureFrame]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => () => { stream?.getTracks().forEach((t) => t.stop()); }, []); // eslint-disable-line
 
   const state: CameraState = { stream, error, ready };
   return { ...state, videoRef, startCamera, stopCamera, captureFrame, captureFrames };
