@@ -9,6 +9,7 @@ import { AttendanceHistory } from '@/pages/AttendanceHistory';
 import { Reports } from '@/pages/Reports';
 import { AuditLogs } from '@/pages/AuditLogs';
 import { Settings } from '@/pages/Settings';
+import { Kiosk } from '@/pages/Kiosk';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -17,6 +18,7 @@ function App() {
     <HashRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/kiosk" element={<Kiosk />} />
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/employees" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'hr_officer']}><Employees /></ProtectedRoute>} />

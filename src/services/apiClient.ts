@@ -30,3 +30,32 @@ export async function apiUpload<T = unknown>(path: string, formData: FormData): 
   if (!res.ok) throw new ApiError((body as { detail?: string })?.detail || `Upload failed (${res.status})`, res.status, body);
   return body as T;
 }
+
+// Kiosk device auth: the attendance kiosk screen has no logged-in user, so it
+// authenticates with a per-organization key (paired once, stored locally on
+// the device) instead of a Supabase session.
+export const KIOSK_KEY_STORAGE_KEY = 'faceread_kiosk_api_key';
+export function getKioskKey(): string | null { return localStorage.getItem(KIOSK_KEY_STORAGE_KEY); }
+export function setKioskKey(key: string) { localStorage.setItem(KIOSK_KEY_STORAGE_KEY, key); }
+export function clearKioskKey() { localStorage.removeItem(KIOSK_KEY_STORAGE_KEY); }
+
+export async function kioskApiRequest<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
+  const key = getKioskKey();
+  if (!key) throw new ApiError('This kiosk is not paired yet', 401);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Kiosk-Key': key, ...(options.headers as Record<string, string>) };
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  let body: unknown = null;
+  if (res.headers.get('content-type')?.includes('application/json')) body = await res.json();
+  if (!res.ok) throw new ApiError((body as { detail?: string })?.detail || `Request failed (${res.status})`, res.status, body);
+  return body as T;
+}
+
+export async function kioskApiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
+  const key = getKioskKey();
+  if (!key) throw new ApiError('This kiosk is not paired yet', 401);
+  const res = await fetch(`${API_BASE_URL}${path}`, { method: 'POST', headers: { 'X-Kiosk-Key': key }, body: formData });
+  let body: unknown = null;
+  if (res.headers.get('content-type')?.includes('application/json')) body = await res.json();
+  if (!res.ok) throw new ApiError((body as { detail?: string })?.detail || `Upload failed (${res.status})`, res.status, body);
+  return body as T;
+}

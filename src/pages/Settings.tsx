@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Save, CheckCircle2 } from 'lucide-react';
+import { Loader2, Save, CheckCircle2, KeyRound, Copy } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
+import { getKioskKeyStatus, rotateKioskKey } from '@/services/attendanceService';
 import { PageHeader } from '@/components/AppShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,29 @@ export function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [kioskConfigured, setKioskConfigured] = useState(false);
+  const [kioskRotatedAt, setKioskRotatedAt] = useState<string | null>(null);
+  const [kioskNewKey, setKioskNewKey] = useState<string | null>(null);
+  const [kioskRotating, setKioskRotating] = useState(false);
+  const [kioskError, setKioskError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try { const s = await getKioskKeyStatus(); setKioskConfigured(s.configured); setKioskRotatedAt(s.rotated_at); }
+      catch { /* non-fatal - user may not have an org yet */ }
+    })();
+  }, []);
+
+  const handleRotateKiosk = async () => {
+    setKioskRotating(true); setKioskError(null); setKioskNewKey(null);
+    try {
+      const res = await rotateKioskKey();
+      setKioskNewKey(res.kiosk_api_key);
+      setKioskConfigured(true);
+      setKioskRotatedAt(new Date().toISOString());
+    } catch (err) { setKioskError(err instanceof Error ? err.message : 'Could not generate a kiosk key'); }
+    finally { setKioskRotating(false); }
+  };
 
   useEffect(() => {
     (async () => {
@@ -76,6 +100,30 @@ export function Settings() {
                 {label}
               </label>
             ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Kiosk (no-login attendance screen)</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">Generate a kiosk key and enter it once on the device you'll use for walk-up check-in/check-out at <code>/kiosk</code>. Anyone with physical access to that device can mark attendance by scanning their face - no login needed there. Rotating the key immediately disconnects any device paired with the old one.</p>
+            <div className="flex items-center gap-2 text-sm">
+              <KeyRound className="w-4 h-4 text-primary" />
+              {kioskConfigured ? <span>Kiosk key configured{kioskRotatedAt ? ` · rotated ${new Date(kioskRotatedAt).toLocaleString()}` : ''}</span> : <span className="text-muted-foreground">No kiosk key generated yet</span>}
+            </div>
+            {kioskNewKey && (
+              <div className="space-y-1.5">
+                <Label>New kiosk key (shown once - copy it now)</Label>
+                <div className="flex gap-2">
+                  <Input readOnly value={kioskNewKey} className="font-mono text-xs" />
+                  <Button type="button" variant="secondary" size="icon" onClick={() => navigator.clipboard.writeText(kioskNewKey)}><Copy className="w-4 h-4" /></Button>
+                </div>
+              </div>
+            )}
+            {kioskError && <p className="text-sm text-destructive">{kioskError}</p>}
+            <Button variant={kioskConfigured ? 'outline' : 'default'} onClick={handleRotateKiosk} disabled={kioskRotating}>
+              {kioskRotating ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              {kioskConfigured ? 'Rotate Kiosk Key' : 'Generate Kiosk Key'}
+            </Button>
           </CardContent>
         </Card>
         <div className="flex items-center gap-3">

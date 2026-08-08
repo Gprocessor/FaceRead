@@ -1,4 +1,4 @@
-import { apiRequest, apiUpload } from './apiClient';
+import { apiRequest, apiUpload, kioskApiUpload } from './apiClient';
 export interface EnrollmentResult { success: boolean; employee_id: string; face_profile_id?: string; enrollment_status: string; message: string; face_detected: boolean; face_count: number; }
 export interface LivenessChallengeResponse { challenge_type: string; instruction: string; session_id: string; }
 export interface LivenessResult { passed: boolean; challenge_type: string; liveness_score: number; failure_reason: string | null; frame_count: number; processing_time_ms: number; session_id: string; }
@@ -16,4 +16,15 @@ export async function submitLivenessCheck(sessionId: string, challengeType: stri
   frames.forEach((f, i) => fd.append('frames', f, `frame_${i}.jpg`));
   fd.append('device_info', JSON.stringify(deviceInfo));
   return apiUpload<LivenessResult>('/api/liveness/check', fd);
+}
+
+export async function requestKioskLivenessChallenge(): Promise<LivenessChallengeResponse> {
+  return kioskApiUpload<LivenessChallengeResponse>('/api/kiosk/liveness/challenge', new FormData());
+}
+export async function submitKioskLivenessCheck(sessionId: string, challengeType: string, frames: Blob[], deviceInfo: Record<string, unknown>): Promise<LivenessResult> {
+  const fd = new FormData();
+  fd.append('session_id', sessionId); fd.append('challenge_type', challengeType);
+  frames.forEach((f, i) => fd.append('frames', f, `frame_${i}.jpg`));
+  fd.append('device_info', JSON.stringify(deviceInfo));
+  return kioskApiUpload<LivenessResult>('/api/kiosk/liveness/check', fd);
 }
