@@ -1,0 +1,19 @@
+# Local backend via Docker. Choose the engine with FACE_ENGINE:
+#   FACE_ENGINE=insightface docker compose up --build   (accurate; default)
+#   FACE_ENGINE=fallback    docker compose up --build   (fast build, weak match)
+#   FACE_ENGINE=dlib        docker compose up --build    (needs lots of RAM)
+services:
+  api:
+    build:
+      context: ./backend
+      args:
+        FACE_ENGINE: ${FACE_ENGINE:-insightface}
+        INSIGHTFACE_MODEL: ${INSIGHTFACE_MODEL:-buffalo_l}
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      FACE_ENGINE: ${FACE_ENGINE:-insightface}
+      INSIGHTFACE_MODEL: ${INSIGHTFACE_MODEL:-buffalo_l}
+    restart: unless-stopped

@@ -14,11 +14,11 @@ def _get_employee_or_404(sb, employee_id: str) -> dict:
     r = sb.table("employees").select("id, organization_id, user_id").eq("id", employee_id).maybe_single().execute()
     if not r.data: raise HTTPException(status_code=404, detail="Employee not found")
     return r.data
-def _assert_same_org(profile: dict, employee: dict) -> None:
+def _assert_same_org(profile, employee):
     if profile["role"] == "super_admin": return
     if not profile.get("organization_id") or profile["organization_id"] != employee.get("organization_id"):
         raise HTTPException(status_code=403, detail="Employee does not belong to your organization")
-def _assert_staff_or_self(profile: dict, employee: dict) -> None:
+def _assert_staff_or_self(profile, employee):
     if profile["role"] in ("super_admin", "org_admin", "hr_officer", "supervisor"): return
     if employee.get("user_id") and employee["user_id"] == profile["user_id"]: return
     raise HTTPException(status_code=403, detail="Not authorized to verify this employee")
@@ -29,8 +29,7 @@ async def enroll_face(request: Request, employee_id: str = Form(...), consent_id
     if not rate_limiter.check(f"enroll:{profile['user_id']}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
     sb = get_supabase()
-    employee = _get_employee_or_404(sb, employee_id)
-    _assert_same_org(profile, employee)
+    employee = _get_employee_or_404(sb, employee_id); _assert_same_org(profile, employee)
     img = decode_image(await image.read())
     if img is None: raise HTTPException(status_code=400, detail="Invalid image data")
     faces = detect_faces(img)
@@ -53,9 +52,7 @@ async def verify_face(request: Request, employee_id: str = Form(...), image: Upl
     if not rate_limiter.check(f"verify:{profile['user_id']}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
     sb = get_supabase()
-    employee = _get_employee_or_404(sb, employee_id)
-    _assert_same_org(profile, employee)
-    _assert_staff_or_self(profile, employee)
+    employee = _get_employee_or_404(sb, employee_id); _assert_same_org(profile, employee); _assert_staff_or_self(profile, employee)
     img = decode_image(await image.read())
     if img is None: raise HTTPException(status_code=400, detail="Invalid image data")
     faces = detect_faces(img)
@@ -63,7 +60,7 @@ async def verify_face(request: Request, employee_id: str = Form(...), image: Upl
     if not v["ok"]:
         return {"success": False, "employee_id": employee_id, "face_match_score": 0.0, "verified": False, "threshold": FACE_MATCH_THRESHOLD, "message": v["error"], "face_detected": len(faces) > 0, "face_count": len(faces)}
     try:
-        emb, _model_name = extract_embedding(extract_face_region(img, v["face"]["box"]))
+        emb, _m = extract_embedding(extract_face_region(img, v["face"]["box"]))
     except EmbeddingUnavailableError as e:
         raise HTTPException(status_code=503, detail=str(e))
     r = verify_against_profile(emb, employee_id)

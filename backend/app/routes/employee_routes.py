@@ -18,12 +18,10 @@ async def list_employees(request: Request):
     employees = []
     for e in result.data or []:
         employees.append({"id": e["id"], "employee_code": e["employee_code"], "full_name": e["full_name"], "email": e.get("email"), "department": e.get("departments", {}).get("name") if e.get("departments") else None, "status": e["status"], "face_enrolled": False})
-    # Single query for face-enrollment status (no head=True — unsupported by deployed postgrest-py).
     fp_query = sb.table("face_profiles").select("employee_id").eq("is_active", True)
     if profile["role"] != "super_admin":
         fp_query = fp_query.eq("organization_id", profile["organization_id"])
-    fp_result = fp_query.execute()
-    enrolled_ids = {row["employee_id"] for row in (fp_result.data or [])}
+    enrolled_ids = {row["employee_id"] for row in (fp_query.execute().data or [])}
     for emp in employees:
         emp["face_enrolled"] = emp["id"] in enrolled_ids
     return employees

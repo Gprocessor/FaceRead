@@ -1,4 +1,3 @@
-"""Kiosk device auth: a shared per-organization secret instead of a user login."""
 from fastapi import HTTPException, Request, status
 from app.database.supabase_client import get_supabase
 def get_kiosk_organization_id(request: Request) -> str:

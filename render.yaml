@@ -15,11 +15,11 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: FACE_ENGINE
+        value: insightface
+      - key: INSIGHTFACE_MODEL
+        value: buffalo_l
       - key: ALLOWED_ORIGINS
         value: https://gprocessor.github.io
       - key: FACE_MATCH_THRESHOLD
-        value: 0.6
-      - key: LIVENESS_THRESHOLD
-        value: 0.7
-      - key: MAX_ALLOWED_FACES
-        value: 1
+        value: 0.68

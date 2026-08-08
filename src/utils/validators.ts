@@ -1,3 +1,3 @@
-export function formatDate(date: string | Date): string { const d = typeof date === 'string' ? new Date(date) : date; return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
-export function formatTime(date: string | Date): string { const d = typeof date === 'string' ? new Date(date) : date; return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
-export function formatScore(score: number | null | undefined): string { return score === null || score === undefined ? '—' : `${(score * 100).toFixed(1)}%`; }
+export function formatDate(d: string | Date): string { const x = typeof d === 'string' ? new Date(d) : d; return x.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+export function formatTime(d: string | Date): string { const x = typeof d === 'string' ? new Date(d) : d; return x.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
+export function formatScore(s: number | null | undefined): string { return s === null || s === undefined ? '—' : `${(s * 100).toFixed(1)}%`; }

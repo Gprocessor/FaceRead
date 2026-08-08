@@ -10,3 +10,5 @@ dist-ssr
 .DS_Store
 *.sw?
 .env
+backend/.venv
+__pycache__

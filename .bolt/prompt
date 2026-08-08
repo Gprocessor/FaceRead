@@ -1,2 +1,1 @@
-For all designs I ask you to make, have them be beautiful, not cookie cutter. Make webpages that are fully featured and worthy for production.
-Use icons from lucide-react. Import project modules with the `@/` alias mapping to `src/`.
+Beautiful, production-grade UI. lucide-react icons. Import via @/ alias.

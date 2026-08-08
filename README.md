@@ -1,50 +1,65 @@
 # FaceAttend — Face Recognition Attendance System
 
-A production-grade, consent-first face recognition attendance platform with liveness
-detection and a walk-up **kiosk** as the default screen. **UI/UX** uses the
-"group-presence" design language (Space Grotesk + DM Sans, oklch industrial-trust
-palette, surface-panel cards, graphite sidebar). **Backend** is Python FastAPI;
-**data/auth** is Supabase (Postgres + RLS).
+Consent-first face-recognition attendance with **liveness detection**, a walk-up
+**kiosk** as the default screen, **self-serve organization signup**, and a
+**switchable face engine**. Frontend: React + Vite + Tailwind (group-presence
+design). Backend: Python FastAPI. Data/Auth: Supabase (Postgres + RLS).
 
 ```
-React (GitHub Pages) → Python FastAPI (Render) → Supabase (Auth + Postgres + RLS)
+React (GitHub Pages / local) → Python FastAPI (Render / local) → Supabase
 ```
 
-## Highlights
-- 🏢 **Self-serve org signup** — each registration creates its OWN organization,
-  app_settings, a default "General" department, and makes the signer org_admin.
-- 🖥️ **Kiosk is the home screen** (`/`) — employees mark attendance by face, no login.
-  An **Admin** icon (top-right) opens the login.
-- 🧠 **1:N identify** at the kiosk (who you are is decided by your face), **1:1 verify**
-  in the logged-in flow.
-- 🔐 **Kiosk key** — admin generates it in Settings → Kiosk; paste once per device.
-- 🛡️ **Consent-first biometrics**, single-use liveness sessions, RLS everywhere.
+## ✨ Switchable face engine
+Set `FACE_ENGINE` (backend env). No code changes needed:
 
-## Setup
+| FACE_ENGINE | Accuracy | Build cost | License | Notes |
+|---|---|---|---|---|
+| `insightface` *(default)* | ★★★★ | light (onnxruntime) | models **non-commercial** | great for a school project |
+| `face_recognition` | ★★★★ | heavy (dlib/cmake, >8 GB) | permissive | needs a bigger build box |
+| `fallback` | ★ (weak) | none | n/a | opencv histogram; demo only |
+| `auto` | — | — | — | tries insightface → dlib → fallback |
 
-### 1. Database — run migrations in Supabase SQL Editor, in order:
-1. `supabase/migrations/20260803155254_create_core_schema.sql`
-2. `supabase/migrations/20260803155331_create_rls_policies.sql`
-3. `supabase/migrations/20260808120000_kiosk_api_key.sql`
-4. `supabase/migrations/20260810120000_org_self_serve_signup.sql`  ← per-org signup
+Tune **Settings → Face Match Threshold**: insightface ≈ 0.66–0.72, dlib ≈ 0.60.
+Health check `/api/health` reports the active engine.
 
-### 2. Frontend (GitHub Pages)
-- Repo secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL`
-- Settings → Pages → Source = **GitHub Actions**; push to `main`.
+## Run it LOCALLY (full stack)
 
-### 3. Backend (Render)
-- Root Directory = `backend`, Dockerfile Path = `Dockerfile`.
-- Env: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_ORIGINS`.
-- Docker builds the **full** face model by default (dlib). Set `USE_FULL=0` for lite.
+### 0. Prereqs
+- A Supabase project (free). Run the 4 files in `supabase/migrations/` in the SQL Editor.
+- Node 20+, Python 3.11+ (and optionally Docker).
 
-## Getting started as a new customer
-1. Open the app → **Admin** (top-right) → **Register Organization** (name + your details).
-2. Sign in → **People**: add employees. **Face Enrollment**: enroll each face (consent first).
-3. **Settings → Kiosk**: Generate Kiosk Key. On the entrance device, open `/` and paste the key once.
-4. Employees now walk up to `/` and check in/out by face.
+### 1. Backend
+```bash
+cd backend
+cp .env.example .env        # fill SUPABASE_URL / keys; set FACE_ENGINE
+./run_local.sh              # creates venv, installs the engine's deps, starts :8000
+```
+Or with Docker (one command):
+```bash
+FACE_ENGINE=insightface docker compose up --build   # from repo root
+```
+
+### 2. Frontend
+```bash
+cp .env.example .env        # set VITE_API_BASE_URL=http://localhost:8000, VITE_BASE=/
+./scripts/dev-frontend.sh   # http://localhost:5173  (kiosk at /, admin at /#/login)
+```
+
+## Deploy to production
+- **Supabase:** run the 4 migrations.
+- **Frontend (GitHub Pages):** repo secrets `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+  `VITE_API_BASE_URL`; Pages source = GitHub Actions; push to `main`.
+- **Backend (Render):** Root Directory = `backend`; set `SUPABASE_*`,
+  `FACE_ENGINE=insightface`, `ALLOWED_ORIGINS`. The Docker build pre-downloads the model.
+
+## First run
+1. Home screen is the **Kiosk**. Click **Admin** (top-right) → **Register Organization**.
+2. Sign in → **People** (add employees) → **Face Enrollment** (consent, then capture).
+3. **Settings → Kiosk → Generate Kiosk Key**. On the entrance device open `/` and paste it once.
+4. Employees mark attendance by face at `/` — no login.
 
 ## Roles
 super_admin · org_admin · hr_officer · supervisor · employee
 
 ## License
-MIT
+Code MIT. InsightFace pretrained models are for **non-commercial** use.

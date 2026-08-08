@@ -24,4 +24,6 @@ LIVENESS_THRESHOLD = _flt("LIVENESS_THRESHOLD", 0.7)
 LIVENESS_FRAME_COUNT = _int("LIVENESS_FRAME_COUNT", 5)
 ALLOWED_ORIGINS = _origins()
 PORT = _int("PORT", 8000)
-EMBEDDING_MODEL = "face_recognition"
+# Which face engine to use: insightface | face_recognition | fallback | auto
+FACE_ENGINE = _env("FACE_ENGINE", "insightface")
+INSIGHTFACE_MODEL = _env("INSIGHTFACE_MODEL", "buffalo_l")

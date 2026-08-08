@@ -15,9 +15,7 @@ from app.utils.security import rate_limiter
 from app.routes.liveness_routes import consume_liveness_session
 router = APIRouter()
 STAFF_ROLES = ("super_admin", "org_admin", "hr_officer", "supervisor")
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
-
+def _ip(request): return request.client.host if request.client else "unknown"
 async def _finalize(sb, org_id, employee_id, check_type, fr, liveness_score, device_info, latitude, longitude, settings, actor_user_id, actor_role):
     if not fr["verified"]:
         status_val, verification_val = "failed_verification", "failed"
@@ -36,7 +34,6 @@ async def _finalize(sb, org_id, employee_id, check_type, fr, liveness_score, dev
         sb.table("face_profiles").update({"last_verified_at": "now()"}).eq("id", fr["face_profile_id"]).execute()
     log_audit(org_id, actor_user_id, actor_role, f"attendance_{check_type}", "attendance_log", log_id, {"employee_id": employee_id, "status": status_val, "face_score": fr["score"], "liveness_score": liveness_score})
     return {"success": verification_val == "verified", "employee_id": employee_id, "attendance_log_id": log_id, "attendance_session_id": session_id, "check_type": check_type, "status": status_val, "verification_status": verification_val, "face_match_score": fr["score"], "liveness_score": liveness_score, "message": "Attendance recorded" if verification_val == "verified" else "Verification failed", "duplicate": False}
-
 async def _process(request, check_type, employee_id, image, device_info, latitude, longitude, liveness_session_id):
     profile = get_user_profile(request)
     if not rate_limiter.check(f"attendance:{profile['user_id']}"):
@@ -51,10 +48,9 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
         raise HTTPException(status_code=403, detail="You may only check yourself in or out")
     settings = get_org_settings(org_id)
     if settings.get("require_liveness", True):
-        liveness_session = consume_liveness_session(liveness_session_id, "user", profile["user_id"])
-        if not liveness_session:
-            raise HTTPException(status_code=400, detail="Liveness verification required: complete the liveness challenge first")
-        liveness_score = liveness_session["liveness_score"]
+        ls = consume_liveness_session(liveness_session_id, "user", profile["user_id"])
+        if not ls: raise HTTPException(status_code=400, detail="Liveness verification required: complete the liveness challenge first")
+        liveness_score = ls["liveness_score"]
     else:
         liveness_score = 0.0
     if should_reject_duplicate(settings, check_type):
@@ -69,24 +65,20 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
         sb.table("attendance_logs").insert({"organization_id": org_id, "employee_id": employee_id, "attendance_date": date.today().isoformat(), "check_type": check_type, "status": "failed_verification", "verification_status": "failed", "rejection_reason": v["error"], "device_info": json.loads(device_info) if device_info else {}, "location_latitude": float(latitude) if latitude else None, "location_longitude": float(longitude) if longitude else None}).execute()
         return {"success": False, "employee_id": employee_id, "attendance_log_id": "", "attendance_session_id": "", "check_type": check_type, "status": "failed_verification", "verification_status": "failed", "face_match_score": 0.0, "liveness_score": liveness_score, "message": v["error"], "duplicate": False}
     try:
-        emb, _model_name = extract_embedding(extract_face_region(img, v["face"]["box"]))
+        emb, _m = extract_embedding(extract_face_region(img, v["face"]["box"]))
     except EmbeddingUnavailableError as e:
         raise HTTPException(status_code=503, detail=str(e))
     fr = verify_against_profile(emb, employee_id, settings.get("face_match_threshold", 0.6))
     return await _finalize(sb, org_id, employee_id, check_type, fr, liveness_score, device_info, latitude, longitude, settings, profile["user_id"], profile["role"])
-
 async def _process_kiosk(request, check_type, image, device_info, latitude, longitude, liveness_session_id):
     org_id = get_kiosk_organization_id(request)
-    ip = _client_ip(request)
-    if not rate_limiter.check(f"kiosk_attendance:{org_id}:{ip}"):
+    if not rate_limiter.check(f"kiosk_attendance:{org_id}:{_ip(request)}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
-    sb = get_supabase()
-    settings = get_org_settings(org_id)
+    sb = get_supabase(); settings = get_org_settings(org_id)
     if settings.get("require_liveness", True):
-        liveness_session = consume_liveness_session(liveness_session_id, "kiosk", org_id)
-        if not liveness_session:
-            raise HTTPException(status_code=400, detail="Liveness verification required: complete the liveness challenge first")
-        liveness_score = liveness_session["liveness_score"]
+        ls = consume_liveness_session(liveness_session_id, "kiosk", org_id)
+        if not ls: raise HTTPException(status_code=400, detail="Liveness verification required: complete the liveness challenge first")
+        liveness_score = ls["liveness_score"]
     else:
         liveness_score = 0.0
     img = decode_image(await image.read())
@@ -96,7 +88,7 @@ async def _process_kiosk(request, check_type, image, device_info, latitude, long
     if not v["ok"]:
         return {"success": False, "employee_id": None, "attendance_log_id": "", "attendance_session_id": "", "check_type": check_type, "status": "failed_verification", "verification_status": "failed", "face_match_score": 0.0, "liveness_score": liveness_score, "message": v["error"], "duplicate": False}
     try:
-        emb, _model_name = extract_embedding(extract_face_region(img, v["face"]["box"]))
+        emb, _m = extract_embedding(extract_face_region(img, v["face"]["box"]))
     except EmbeddingUnavailableError as e:
         raise HTTPException(status_code=503, detail=str(e))
     ident = identify_employee(emb, org_id, settings.get("face_match_threshold", 0.6))
@@ -112,10 +104,8 @@ async def _process_kiosk(request, check_type, image, device_info, latitude, long
     fr = {"verified": True, "score": ident["score"], "threshold": ident["threshold"], "face_profile_id": ident["face_profile_id"], "error": None}
     result = await _finalize(sb, org_id, employee_id, check_type, fr, liveness_score, device_info, latitude, longitude, settings, None, "kiosk_device")
     emp = sb.table("employees").select("full_name, employee_code").eq("id", employee_id).maybe_single().execute()
-    result["employee_name"] = (emp.data or {}).get("full_name")
-    result["employee_code"] = (emp.data or {}).get("employee_code")
+    result["employee_name"] = (emp.data or {}).get("full_name"); result["employee_code"] = (emp.data or {}).get("employee_code")
     return result
-
 @router.post("/api/attendance/check-in")
 async def check_in(request: Request, employee_id: str = Form(...), image: UploadFile = File(...), liveness_session_id: str = Form(...), device_info: str = Form("{}"), latitude: str | None = Form(None), longitude: str | None = Form(None)):
     return await _process(request, "check_in", employee_id, image, device_info, latitude, longitude, liveness_session_id)
@@ -135,8 +125,8 @@ async def get_history(request: Request, employee_id: str | None = Query(None), d
     q = sb.table("attendance_logs").select("*")
     if profile["role"] != "super_admin": q = q.eq("organization_id", profile["organization_id"])
     if profile["role"] not in STAFF_ROLES:
-        own_emp = sb.table("employees").select("id").eq("user_id", profile["user_id"]).maybe_single().execute()
-        own_id = own_emp.data["id"] if own_emp.data else None
+        own = sb.table("employees").select("id").eq("user_id", profile["user_id"]).maybe_single().execute()
+        own_id = own.data["id"] if own.data else None
         if employee_id and employee_id != own_id:
             raise HTTPException(status_code=403, detail="You may only view your own attendance history")
         q = q.eq("employee_id", own_id or "00000000-0000-0000-0000-000000000000")
@@ -149,10 +139,8 @@ async def get_history(request: Request, employee_id: str | None = Query(None), d
 async def get_reports(request: Request, date_from: str | None = Query(None), date_to: str | None = Query(None)):
     profile = get_user_profile(request)
     check_permission(profile, "super_admin", "org_admin", "hr_officer", "supervisor")
-    sb = get_supabase()
-    org_id = profile["organization_id"]; today = date.today().isoformat()
-    emp_count = sb.table("employees").select("id", count="exact").eq("organization_id", org_id).eq("status", "active").execute()
-    total = emp_count.count or 0
+    sb = get_supabase(); org_id = profile["organization_id"]; today = date.today().isoformat()
+    total = (sb.table("employees").select("id", count="exact").eq("organization_id", org_id).eq("status", "active").execute()).count or 0
     sessions = sb.table("attendance_sessions").select("*").eq("organization_id", org_id).eq("attendance_date", today).execute().data or []
     present = sum(1 for s in sessions if s["status"] == "present")
     late = sum(1 for s in sessions if s["status"] == "late")

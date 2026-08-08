@@ -10,8 +10,7 @@ CHALLENGE_INSTRUCTIONS = {
     "SMILE": "Give the camera a natural smile",
 }
 def get_random_challenge():
-    c = random.choice(CHALLENGES)
-    return {"challenge_type": c, "instruction": CHALLENGE_INSTRUCTIONS[c]}
+    c = random.choice(CHALLENGES); return {"challenge_type": c, "instruction": CHALLENGE_INSTRUCTIONS[c]}
 def _eye_cascade(): return cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
 def _smile_cascade(): return cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_smile.xml")
 def _centers(frames):

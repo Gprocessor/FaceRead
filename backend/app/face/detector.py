@@ -9,7 +9,9 @@ def detect_faces(image):
     return [{"box": (int(x), int(y), int(w), int(h)), "confidence": 0.9} for (x, y, w, h) in faces]
 def extract_face_region(image, box):
     x, y, w, h = box
-    return image[y:y+h, x:x+w]
+    pad = int(0.15 * max(w, h))
+    y0 = max(0, y - pad); x0 = max(0, x - pad)
+    return image[y0:y+h+pad, x0:x+w+pad]
 def validate_single_face(faces, max_allowed=1, min_confidence=0.7):
     if len(faces) == 0: return {"ok": False, "face": None, "error": "No face detected in the image"}
     if len(faces) > max_allowed: return {"ok": False, "face": None, "error": f"Multiple faces detected ({len(faces)}). Only one person allowed."}
