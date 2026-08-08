@@ -17,8 +17,10 @@ services:
         sync: false
       - key: FACE_ENGINE
         value: insightface
+      # Lightweight model for Render's 512 MB free tier (avoids OOM).
+      # Local dev uses buffalo_l via backend/.env (which is git-ignored).
       - key: INSIGHTFACE_MODEL
-        value: buffalo_l
+        value: buffalo_s
       - key: ALLOWED_ORIGINS
         value: https://gprocessor.github.io
       - key: FACE_MATCH_THRESHOLD

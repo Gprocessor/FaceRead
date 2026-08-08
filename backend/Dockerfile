@@ -1,6 +1,10 @@
 FROM python:3.11-slim
 ARG FACE_ENGINE=insightface
-ARG INSIGHTFACE_MODEL=buffalo_l
+# Default to the LIGHTWEIGHT model so the image baked for Render (free tier,
+# 512 MB) fits in memory. Local dev doesn't use this Dockerfile — it runs
+# system Python via run_local.sh and reads INSIGHTFACE_MODEL from backend/.env
+# (set to buffalo_l locally for full accuracy).
+ARG INSIGHTFACE_MODEL=buffalo_s
 ENV FACE_ENGINE=${FACE_ENGINE}
 ENV INSIGHTFACE_MODEL=${INSIGHTFACE_MODEL}
 RUN apt-get update && apt-get install -y libglib2.0-0 libsm6 libxrender1 libxext6 libgl1 && rm -rf /var/lib/apt/lists/*
