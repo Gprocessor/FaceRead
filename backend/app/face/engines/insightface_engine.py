@@ -13,7 +13,7 @@ class InsightFaceEngine(BaseFaceEngine):
             with self._lock:
                 if self._app is None:
                     from insightface.app import FaceAnalysis
-                    app = FaceAnalysis(name=self.model_pack, providers=["CPUExecutionProvider"]); app.prepare(ctx_id=-1, det_size=(640,640)); self._app = app
+                    app = FaceAnalysis(name=self.model_pack, providers=["CPUExecutionProvider"]); app.prepare(ctx_id=-1, det_size=(320,320)); self._app = app
         return self._app
     def extract(self, img):
         faces = self._load().get(img)
