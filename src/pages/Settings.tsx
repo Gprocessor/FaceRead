@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
 interface AppSettings {
   id?: string; late_threshold_minutes: number; work_start_time: string; work_end_time: string;
   require_liveness: boolean; require_check_out: boolean; allow_multiple_check_in: boolean;
@@ -16,7 +15,6 @@ interface AppSettings {
   max_allowed_faces: number; min_face_confidence: number; geofencing_enabled: boolean;
 }
 const DEFAULTS: AppSettings = { late_threshold_minutes: 15, work_start_time: '09:00', work_end_time: '17:00', require_liveness: true, require_check_out: false, allow_multiple_check_in: false, duplicate_check_window_minutes: 60, face_match_threshold: 0.6, liveness_threshold: 0.7, max_allowed_faces: 1, min_face_confidence: 0.7, geofencing_enabled: false };
-
 export function Settings() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -28,25 +26,15 @@ export function Settings() {
   const [kioskNewKey, setKioskNewKey] = useState<string | null>(null);
   const [kioskRotating, setKioskRotating] = useState(false);
   const [kioskError, setKioskError] = useState<string | null>(null);
-
   useEffect(() => {
-    (async () => {
-      try { const s = await getKioskKeyStatus(); setKioskConfigured(s.configured); setKioskRotatedAt(s.rotated_at); }
-      catch { /* non-fatal - user may not have an org yet */ }
-    })();
+    (async () => { try { const s = await getKioskKeyStatus(); setKioskConfigured(s.configured); setKioskRotatedAt(s.rotated_at); } catch { /* no org yet */ } })();
   }, []);
-
   const handleRotateKiosk = async () => {
     setKioskRotating(true); setKioskError(null); setKioskNewKey(null);
-    try {
-      const res = await rotateKioskKey();
-      setKioskNewKey(res.kiosk_api_key);
-      setKioskConfigured(true);
-      setKioskRotatedAt(new Date().toISOString());
-    } catch (err) { setKioskError(err instanceof Error ? err.message : 'Could not generate a kiosk key'); }
+    try { const res = await rotateKioskKey(); setKioskNewKey(res.kiosk_api_key); setKioskConfigured(true); setKioskRotatedAt(new Date().toISOString()); }
+    catch (err) { setKioskError(err instanceof Error ? err.message : 'Could not generate a kiosk key'); }
     finally { setKioskRotating(false); }
   };
-
   useEffect(() => {
     (async () => {
       if (!user?.organizationId) { setSettings({ ...DEFAULTS }); setLoading(false); return; }
@@ -55,17 +43,14 @@ export function Settings() {
       setLoading(false);
     })();
   }, [user]);
-
   const handleSave = async () => {
     if (!settings || !user?.organizationId) return;
     setSaving(true); setSaved(false);
     try { await supabase.from('app_settings').upsert({ organization_id: user.organizationId, ...settings }, { onConflict: 'organization_id' }); setSaved(true); setTimeout(() => setSaved(false), 3000); }
     finally { setSaving(false); }
   };
-
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>;
   if (!settings) return <Card className="p-12 text-center text-muted-foreground">No settings available.</Card>;
-
   const num = (label: string, key: keyof AppSettings, step = '1') => (
     <div className="space-y-1.5"><Label>{label}</Label><Input type="number" step={step} value={settings[key] as number} onChange={(e) => setSettings({ ...settings, [key]: +e.target.value })} /></div>
   );
@@ -105,14 +90,14 @@ export function Settings() {
         <Card>
           <CardHeader><CardTitle>Kiosk (no-login attendance screen)</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Generate a kiosk key and enter it once on the device you'll use for walk-up check-in/check-out at <code>/kiosk</code>. Anyone with physical access to that device can mark attendance by scanning their face - no login needed there. Rotating the key immediately disconnects any device paired with the old one.</p>
+            <p className="text-sm text-muted-foreground">Generate a kiosk key and enter it once on the device you'll use for walk-up check-in/out at <code>/kiosk</code> (also the home screen). Anyone at that device can mark attendance by scanning their face — no login needed there. Rotating the key immediately disconnects any device paired with the old one.</p>
             <div className="flex items-center gap-2 text-sm">
               <KeyRound className="w-4 h-4 text-primary" />
               {kioskConfigured ? <span>Kiosk key configured{kioskRotatedAt ? ` · rotated ${new Date(kioskRotatedAt).toLocaleString()}` : ''}</span> : <span className="text-muted-foreground">No kiosk key generated yet</span>}
             </div>
             {kioskNewKey && (
               <div className="space-y-1.5">
-                <Label>New kiosk key (shown once - copy it now)</Label>
+                <Label>New kiosk key (shown once — copy it now)</Label>
                 <div className="flex gap-2">
                   <Input readOnly value={kioskNewKey} className="font-mono text-xs" />
                   <Button type="button" variant="secondary" size="icon" onClick={() => navigator.clipboard.writeText(kioskNewKey)}><Copy className="w-4 h-4" /></Button>

@@ -9,7 +9,6 @@ import { PageHeader } from '@/components/AppShell';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-
 export function FaceEnrollment() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Array<{ id: string; full_name: string; employee_code: string; face_enrolled: boolean }>>([]);
@@ -19,20 +18,18 @@ export function FaceEnrollment() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
   useEffect(() => {
     (async () => {
       try {
         const { data } = await supabase.from('employees').select('id, full_name, employee_code').order('full_name');
         const withFace = await Promise.all((data ?? []).map(async (e) => {
-          const { count } = await supabase.from('face_profiles').select('id', { count: 'exact', head: true }).eq('employee_id', e.id).eq('is_active', true);
-          return { ...e, face_enrolled: (count ?? 0) > 0 };
+          const { data: fp } = await supabase.from('face_profiles').select('id').eq('employee_id', e.id).eq('is_active', true).limit(1);
+          return { ...e, face_enrolled: (fp?.length ?? 0) > 0 };
         }));
         setEmployees(withFace);
       } finally { setLoading(false); }
     })();
   }, []);
-
   const handleConsent = async () => {
     if (!selectedId || !user?.organizationId) { setError('Your account has no organization assigned yet.'); return; }
     try {
@@ -56,7 +53,6 @@ export function FaceEnrollment() {
     } else { throw new Error(result.message || 'Enrollment failed'); }
   };
   const selected = employees.find((e) => e.id === selectedId);
-
   return (
     <div className="max-w-3xl">
       <PageHeader title="Face Enrollment" description="Enroll employee faces for biometric attendance. Consent is required first." />

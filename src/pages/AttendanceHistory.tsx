@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
 interface LogRow { id: string; attendance_date: string; check_type: string; status: string; verification_status: string; face_match_score: number | null; liveness_score: number | null; created_at: string; }
 export function AttendanceHistory() {
   const [logs, setLogs] = useState<LogRow[]>([]);
@@ -34,8 +33,7 @@ export function AttendanceHistory() {
   };
   return (
     <div>
-      <PageHeader title="My Attendance" description="Your attendance history and verification records"
-        actions={<Button variant="secondary" onClick={exportCsv}><Download className="w-4 h-4" />Export CSV</Button>} />
+      <PageHeader title="My Attendance" description="Your attendance history and verification records" actions={<Button variant="secondary" onClick={exportCsv}><Download className="w-4 h-4" />Export CSV</Button>} />
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <div><label className="text-xs font-medium text-muted-foreground">From</label><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1" /></div>
         <div><label className="text-xs font-medium text-muted-foreground">To</label><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1" /></div>

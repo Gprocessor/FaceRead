@@ -9,10 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
 interface Row { id: string; employee_code: string; full_name: string; email: string | null; department: string | null; status: string; face_enrolled: boolean; }
 interface Dept { id: string; name: string; }
-
 export function Employees() {
   const [employees, setEmployees] = useState<Row[]>([]);
   const [departments, setDepartments] = useState<Dept[]>([]);
@@ -22,7 +20,6 @@ export function Employees() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ employee_code: '', full_name: '', email: '', phone: '', position: '', department_id: '', hire_date: '' });
   const [submitting, setSubmitting] = useState(false);
-
   const load = async () => {
     setLoading(true); setError(null);
     try {
@@ -40,11 +37,9 @@ export function Employees() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to add person'); } finally { setSubmitting(false); }
   };
   const filtered = employees.filter((e) => e.full_name.toLowerCase().includes(search.toLowerCase()) || e.employee_code.toLowerCase().includes(search.toLowerCase()));
-
   return (
     <div>
-      <PageHeader title="People" description="Employees and students in this organization"
-        actions={<Button onClick={() => setShowAdd(!showAdd)}><Plus className="w-4 h-4" />Add person</Button>} />
+      <PageHeader title="People" description="Employees and students in this organization" actions={<Button onClick={() => setShowAdd(!showAdd)}><Plus className="w-4 h-4" />Add person</Button>} />
       {showAdd && (
         <Card className="p-5 mb-6">
           <form onSubmit={handleAdd} className="space-y-4">

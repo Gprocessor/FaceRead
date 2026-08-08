@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatTime, formatScore } from '@/utils/validators';
-
 export function Reports() {
   const [report, setReport] = useState<AdminReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,8 +26,7 @@ export function Reports() {
   };
   return (
     <div>
-      <PageHeader title="Reports" description="Organization-wide attendance analytics and export"
-        actions={<Button variant="secondary" onClick={exportCsv}><Download className="w-4 h-4" />Export CSV</Button>} />
+      <PageHeader title="Reports" description="Organization-wide attendance analytics and export" actions={<Button variant="secondary" onClick={exportCsv}><Download className="w-4 h-4" />Export CSV</Button>} />
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <div><label className="text-xs font-medium text-muted-foreground">From</label><Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1" /></div>
         <div><label className="text-xs font-medium text-muted-foreground">To</label><Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1" /></div>

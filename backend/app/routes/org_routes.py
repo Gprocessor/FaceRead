@@ -5,8 +5,6 @@ from app.auth.permissions import check_permission
 from app.database.supabase_client import get_supabase
 from app.utils.audit import log_audit
 router = APIRouter()
-
-
 @router.get("/api/admin/kiosk-key")
 async def get_kiosk_key_status(request: Request):
     profile = get_user_profile(request)
@@ -17,13 +15,8 @@ async def get_kiosk_key_status(request: Request):
     r = sb.table("organizations").select("kiosk_api_key, kiosk_key_rotated_at").eq("id", profile["organization_id"]).maybe_single().execute()
     d = r.data or {}
     return {"configured": bool(d.get("kiosk_api_key")), "rotated_at": d.get("kiosk_key_rotated_at")}
-
-
 @router.post("/api/admin/kiosk-key/rotate")
 async def rotate_kiosk_key(request: Request):
-    """Generates a new kiosk key and returns it ONCE in the response.
-    It is never retrievable again afterward - the admin must re-pair any
-    kiosk devices with the new key if they rotate it."""
     profile = get_user_profile(request)
     check_permission(profile, "super_admin", "org_admin")
     if not profile.get("organization_id"):

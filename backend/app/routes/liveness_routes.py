@@ -7,40 +7,28 @@ from app.database.supabase_client import get_supabase
 from app.utils.security import rate_limiter
 router = APIRouter()
 
-# Sessions are owned either by a logged-in user (normal in-app verification)
-# or by a kiosk device acting for an organization (no login). Keyed by
-# (owner_type, owner_id) so a kiosk session can never be consumed by a user
-# request or vice versa.
+# Sessions owned either by a logged-in user or by a kiosk device (per org).
 _liveness_sessions: dict[str, dict] = {}
 SESSION_TTL_SECONDS = 5 * 60
-
 
 def _new_session(owner_type: str, owner_id: str, challenge_type: str) -> str:
     sid = str(uuid.uuid4())
     _liveness_sessions[sid] = {"owner_type": owner_type, "owner_id": owner_id, "challenge_type": challenge_type, "passed": False, "liveness_score": 0.0, "used": False, "created_at": time.time()}
     return sid
 
-
 def consume_liveness_session(session_id: str, owner_type: str, owner_id: str) -> dict | None:
-    """Validate and single-use-consume a liveness session for the given owner.
+    """Validate and single-use-consume a liveness session for the given owner."""
+    s = _liveness_sessions.get(session_id)
+    if not s: return None
+    if s["owner_type"] != owner_type or s["owner_id"] != owner_id: return None
+    if s.get("used"): return None
+    if not s.get("passed"): return None
+    if time.time() - s["created_at"] > SESSION_TTL_SECONDS:
+        _liveness_sessions.pop(session_id, None); return None
+    s["used"] = True
+    return s
 
-    Returns the session dict (with 'passed' and 'liveness_score') if it
-    exists, belongs to this owner, passed, hasn't already been used, and
-    hasn't expired. Always removes the session so it can't be replayed.
-    """
-    session = _liveness_sessions.pop(session_id, None)
-    if not session:
-        return None
-    if session["owner_type"] != owner_type or session["owner_id"] != owner_id:
-        return None
-    if time.time() - session["created_at"] > SESSION_TTL_SECONDS:
-        return None
-    if session.get("used") or not session.get("passed"):
-        return None
-    return session
-
-
-async def _run_check(session_id: str, challenge_type: str, frames: list[UploadFile], device_info: str, org_id_for_log: str | None, employee_id_for_log: str | None):
+async def _run_check(session_id, challenge_type, frames, device_info, org_id_for_log, employee_id_for_log):
     session = _liveness_sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=400, detail="Invalid or expired liveness session")
@@ -61,7 +49,6 @@ async def _run_check(session_id: str, challenge_type: str, frames: list[UploadFi
             sb.table("liveness_checks").insert({"organization_id": org_id_for_log, "employee_id": employee_id_for_log, "challenge_type": effective_challenge_type, "liveness_score": result["liveness_score"], "passed": result["passed"], "failure_reason": result["failure_reason"], "frame_count": result["frame_count"], "processing_time_ms": result["processing_time_ms"], "device_info": json.loads(device_info) if device_info else {}}).execute()
     except Exception: pass
     return {"passed": result["passed"], "challenge_type": effective_challenge_type, "liveness_score": result["liveness_score"], "failure_reason": result["failure_reason"], "frame_count": result["frame_count"], "processing_time_ms": result["processing_time_ms"], "session_id": session_id}
-
 
 @router.post("/api/liveness/challenge")
 async def get_challenge(request: Request):
@@ -85,11 +72,10 @@ async def check_liveness(request: Request, session_id: str = Form(...), challeng
     org_id = profile.get("organization_id")
     return await _run_check(session_id, challenge_type, frames, device_info, org_id if emp.data else None, emp.data["id"] if emp.data else None)
 
-
 @router.post("/api/kiosk/liveness/challenge")
 async def kiosk_get_challenge(request: Request):
     org_id = get_kiosk_organization_id(request)
-    if not rate_limiter.check(f"kiosk_liveness_challenge:{org_id}:{request.client.host if request.client else 'unknown'}"):
+    if not rate_limiter.check(f"kiosk_liveness_challenge::{request.client.host if request.client else 'unknown'}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
     ch = get_random_challenge()
     sid = _new_session("kiosk", org_id, ch["challenge_type"])
@@ -98,7 +84,7 @@ async def kiosk_get_challenge(request: Request):
 @router.post("/api/kiosk/liveness/check")
 async def kiosk_check_liveness(request: Request, session_id: str = Form(...), challenge_type: str = Form(...), frames: list[UploadFile] = File(...), device_info: str = Form("")):
     org_id = get_kiosk_organization_id(request)
-    if not rate_limiter.check(f"kiosk_liveness_check:{org_id}:{request.client.host if request.client else 'unknown'}"):
+    if not rate_limiter.check(f"kiosk_liveness_check::{request.client.host if request.client else 'unknown'}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
     session = _liveness_sessions.get(session_id)
     if not session or session["owner_type"] != "kiosk" or session["owner_id"] != org_id:

@@ -5,7 +5,6 @@ import { formatDate, formatTime } from '@/utils/validators';
 import { PageHeader } from '@/components/AppShell';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
 interface AuditRow { id: string; action: string; entity_type: string | null; actor_role: string | null; ip_address: string | null; created_at: string; }
 export function AuditLogs() {
   const [logs, setLogs] = useState<AuditRow[]>([]);

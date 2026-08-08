@@ -4,7 +4,6 @@ import { useLiveness } from '@/hooks/useLiveness';
 import { CameraCapture } from './CameraCapture';
 import { getDeviceInfo } from '@/utils/deviceInfo';
 import { Button } from '@/components/ui/button';
-
 const META: Record<string, { icon: typeof Eye; instruction: string; description: string }> = {
   BLINK: { icon: Eye, instruction: 'Blink your eyes', description: 'Blink naturally 2-3 times for the camera' },
   TURN_HEAD_LEFT: { icon: ArrowLeft, instruction: 'Turn your head left', description: 'Slowly turn your head to the left, then back to center' },
@@ -23,7 +22,6 @@ export function LivenessChallenge({ onComplete }: { onComplete: (sessionId: stri
     setCapturing(false);
   }, [camera, submitFrames]);
   const handleDone = useCallback(() => { if (result?.passed && challenge) onComplete(challenge.session_id); }, [result, challenge, onComplete]);
-
   if (phase === 'done' && result) {
     const Icon = result.passed ? CheckCircle2 : XCircle;
     return (

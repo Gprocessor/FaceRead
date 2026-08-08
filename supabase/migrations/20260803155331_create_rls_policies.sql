@@ -3,7 +3,6 @@ CREATE OR REPLACE FUNCTION public.current_user_org_id() RETURNS uuid AS $$ SELEC
 CREATE OR REPLACE FUNCTION public.current_user_role() RETURNS user_role AS $$ SELECT role FROM public.profiles WHERE user_id = auth.uid() LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION public.current_user_employee_id() RETURNS uuid AS $$ SELECT id FROM public.employees WHERE user_id = auth.uid() LIMIT 1; $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION public.is_hr_or_above() RETURNS boolean AS $$ SELECT current_user_role() IN ('super_admin','org_admin','hr_officer'); $$ LANGUAGE sql SECURITY DEFINER STABLE;
-
 DROP POLICY IF EXISTS "org_select" ON organizations;
 CREATE POLICY "org_select" ON organizations FOR SELECT TO authenticated USING (current_user_role() = 'super_admin' OR id = current_user_org_id());
 DROP POLICY IF EXISTS "org_manage" ON organizations;

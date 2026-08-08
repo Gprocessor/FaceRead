@@ -10,14 +10,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAdminReports, type AdminReport } from '@/services/attendanceService';
 import { supabase } from '@/services/supabaseClient';
 import { formatTime } from '@/utils/validators';
-
 export function Dashboard() {
   const { user } = useAuth();
   const [report, setReport] = useState<AdminReport | null>(null);
   const [mine, setMine] = useState<Array<{ attendance_date: string; status: string; check_in_time: string | null }>>([]);
   const [trend, setTrend] = useState<{ label: string; onTime: number; late: number }[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -28,12 +26,10 @@ export function Dashboard() {
         if (user) {
           const { data } = await supabase.from('attendance_sessions').select('attendance_date, status, check_in_time').order('attendance_date', { ascending: false }).limit(20);
           setMine((data ?? []).slice(0, 5));
-          // build 7-day trend from sessions
           const buckets = new Map<string, { label: string; onTime: number; late: number }>();
           for (let i = 6; i >= 0; i--) {
             const d = new Date(); d.setDate(d.getDate() - i);
-            const key = d.toLocaleDateString('en-US', { weekday: 'short' });
-            buckets.set(d.toISOString().slice(0, 10), { label: key, onTime: 0, late: 0 });
+            buckets.set(d.toISOString().slice(0, 10), { label: d.toLocaleDateString('en-US', { weekday: 'short' }), onTime: 0, late: 0 });
           }
           (data ?? []).forEach((s) => {
             const b = buckets.get(String(s.attendance_date).slice(0, 10));
@@ -45,7 +41,6 @@ export function Dashboard() {
       } finally { setLoading(false); }
     })();
   }, [user]);
-
   const isAdmin = user && ['super_admin', 'org_admin', 'hr_officer'].includes(user.role);
   return (
     <div>

@@ -10,31 +10,18 @@ from app.config import MAX_ALLOWED_FACES, MIN_FACE_CONFIDENCE, FACE_MATCH_THRESH
 from app.utils.audit import log_audit
 from app.utils.security import rate_limiter
 router = APIRouter()
-
-
 def _get_employee_or_404(sb, employee_id: str) -> dict:
     r = sb.table("employees").select("id, organization_id, user_id").eq("id", employee_id).maybe_single().execute()
-    if not r.data:
-        raise HTTPException(status_code=404, detail="Employee not found")
+    if not r.data: raise HTTPException(status_code=404, detail="Employee not found")
     return r.data
-
-
 def _assert_same_org(profile: dict, employee: dict) -> None:
-    # super_admin can act across organizations; everyone else is confined to their own.
-    if profile["role"] == "super_admin":
-        return
+    if profile["role"] == "super_admin": return
     if not profile.get("organization_id") or profile["organization_id"] != employee.get("organization_id"):
         raise HTTPException(status_code=403, detail="Employee does not belong to your organization")
-
-
 def _assert_staff_or_self(profile: dict, employee: dict) -> None:
-    if profile["role"] in ("super_admin", "org_admin", "hr_officer", "supervisor"):
-        return
-    if employee.get("user_id") and employee["user_id"] == profile["user_id"]:
-        return
+    if profile["role"] in ("super_admin", "org_admin", "hr_officer", "supervisor"): return
+    if employee.get("user_id") and employee["user_id"] == profile["user_id"]: return
     raise HTTPException(status_code=403, detail="Not authorized to verify this employee")
-
-
 @router.post("/api/face/enroll")
 async def enroll_face(request: Request, employee_id: str = Form(...), consent_id: str = Form(...), image: UploadFile = File(...), device_info: str = Form("{}")):
     profile = get_user_profile(request)
@@ -60,7 +47,6 @@ async def enroll_face(request: Request, employee_id: str = Form(...), consent_id
     sb.table("face_enrollment_sessions").insert({"organization_id": employee["organization_id"], "employee_id": employee_id, "face_profile_id": fpid, "status": "completed", "frames_captured": 1, "liveness_passed": False, "device_info": json.loads(device_info) if device_info else {}, "completed_at": "now()", "created_by": profile["user_id"]}).execute()
     log_audit(employee["organization_id"], profile["user_id"], profile["role"], "face_enrolled", "employee", employee_id, {"face_profile_id": fpid, "model": model_name})
     return {"success": True, "employee_id": employee_id, "face_profile_id": fpid, "enrollment_status": "completed", "message": "Face enrolled successfully", "face_detected": True, "face_count": 1}
-
 @router.post("/api/face/verify")
 async def verify_face(request: Request, employee_id: str = Form(...), image: UploadFile = File(...), device_info: str = Form("{}")):
     profile = get_user_profile(request)

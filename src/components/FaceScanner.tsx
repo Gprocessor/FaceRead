@@ -4,7 +4,6 @@ import { useCamera } from '@/hooks/useCamera';
 import { CameraCapture } from './CameraCapture';
 import { getDeviceInfo } from '@/utils/deviceInfo';
 import { Button } from '@/components/ui/button';
-
 export function FaceScanner({ onCapture, title, subtitle, buttonText, successMessage, errorMessage }: {
   onCapture: (b: Blob) => Promise<void>; title: string; subtitle?: string; buttonText: string; successMessage?: string; errorMessage?: string | null;
 }) {

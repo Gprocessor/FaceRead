@@ -1,12 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
-
 type Tone = 'primary' | 'success' | 'warning' | 'destructive';
 const tones: Record<Tone, string> = {
-  primary: 'bg-accent text-accent-foreground',
-  success: 'bg-success/15 text-success',
-  warning: 'bg-warning/15 text-warning',
-  destructive: 'bg-destructive/15 text-destructive',
+  primary: 'bg-accent text-accent-foreground', success: 'bg-success/15 text-success',
+  warning: 'bg-warning/15 text-warning', destructive: 'bg-destructive/15 text-destructive',
 };
 export function StatCard({ icon: Icon, label, value, tone = 'primary', sub }: { icon: LucideIcon; label: string; value: string | number; tone?: Tone; sub?: string }) {
   return (

@@ -35,7 +35,6 @@ function App() {
           <Route path="/settings" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin']}><Settings /></ProtectedRoute>} />
         </Route>
 
-        {/* Unknown routes fall back to the attendance screen. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

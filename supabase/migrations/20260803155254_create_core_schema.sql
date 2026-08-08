@@ -6,9 +6,7 @@ DO $$ BEGIN CREATE TYPE verification_status AS ENUM ('pending','verified','faile
 DO $$ BEGIN CREATE TYPE enrollment_status AS ENUM ('pending','in_progress','completed','failed','revoked'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE liveness_challenge AS ENUM ('BLINK','TURN_HEAD_LEFT','TURN_HEAD_RIGHT','LOOK_STRAIGHT','SMILE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE consent_status AS ENUM ('granted','revoked','pending'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
 CREATE OR REPLACE FUNCTION public.set_updated_at() RETURNS trigger AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$ LANGUAGE plpgsql;
-
 CREATE TABLE IF NOT EXISTS organizations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, slug text UNIQUE NOT NULL, domain text, status text NOT NULL DEFAULT 'active', plan text NOT NULL DEFAULT 'free', settings jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS roles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name user_role NOT NULL UNIQUE, description text, permissions jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
@@ -40,7 +38,7 @@ CREATE TABLE IF NOT EXISTS attendance_logs (id uuid PRIMARY KEY DEFAULT gen_rand
 ALTER TABLE attendance_logs ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_att_logs_emp ON attendance_logs(employee_id);
 CREATE INDEX IF NOT EXISTS idx_att_logs_date ON attendance_logs(attendance_date);
-CREATE TABLE IF NOT EXISTS liveness_checks (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, employee_id uuid NOT NULL REFERENCES employees(id) ON DELETE CASCADE, attendance_log_id uuid REFERENCES attendance_logs(id) ON DELETE SET NULL, challenge_type liveness_challenge NOT NULL, liveness_score double precision NOT NULL DEFAULT 0, passed boolean NOT NULL DEFAULT false, failure_reason text, frame_count integer NOT NULL DEFAULT 0, processing_time_ms integer, device_info jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS liveness_checks (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, employee_id uuid REFERENCES employees(id) ON DELETE CASCADE, attendance_log_id uuid REFERENCES attendance_logs(id) ON DELETE SET NULL, challenge_type liveness_challenge NOT NULL, liveness_score double precision NOT NULL DEFAULT 0, passed boolean NOT NULL DEFAULT false, failure_reason text, frame_count integer NOT NULL DEFAULT 0, processing_time_ms integer, device_info jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE liveness_checks ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS audit_logs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid REFERENCES organizations(id) ON DELETE CASCADE, actor_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL, actor_role user_role, action text NOT NULL, entity_type text, entity_id uuid, details jsonb NOT NULL DEFAULT '{}'::jsonb, ip_address text, user_agent text, created_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;

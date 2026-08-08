@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { cn } from '@/utils/cn';
-
 type Variant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
 const variants: Record<Variant, string> = {
   default: 'border-transparent bg-primary text-primary-foreground',

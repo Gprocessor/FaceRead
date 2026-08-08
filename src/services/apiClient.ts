@@ -31,14 +31,11 @@ export async function apiUpload<T = unknown>(path: string, formData: FormData): 
   return body as T;
 }
 
-// Kiosk device auth: the attendance kiosk screen has no logged-in user, so it
-// authenticates with a per-organization key (paired once, stored locally on
-// the device) instead of a Supabase session.
+// Kiosk device auth: shared per-organization key stored locally on the device.
 export const KIOSK_KEY_STORAGE_KEY = 'faceread_kiosk_api_key';
 export function getKioskKey(): string | null { return localStorage.getItem(KIOSK_KEY_STORAGE_KEY); }
 export function setKioskKey(key: string) { localStorage.setItem(KIOSK_KEY_STORAGE_KEY, key); }
 export function clearKioskKey() { localStorage.removeItem(KIOSK_KEY_STORAGE_KEY); }
-
 export async function kioskApiRequest<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const key = getKioskKey();
   if (!key) throw new ApiError('This kiosk is not paired yet', 401);
@@ -49,7 +46,6 @@ export async function kioskApiRequest<T = unknown>(path: string, options: Reques
   if (!res.ok) throw new ApiError((body as { detail?: string })?.detail || `Request failed (${res.status})`, res.status, body);
   return body as T;
 }
-
 export async function kioskApiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
   const key = getKioskKey();
   if (!key) throw new ApiError('This kiosk is not paired yet', 401);

@@ -6,16 +6,12 @@ def _flt(k, d):
     raw = os.environ.get(k)
     if raw is None: return d
     try: return float(raw)
-    except (ValueError, TypeError):
-        log.warning("Invalid float for env var %s=%r, using default %r", k, raw, d)
-        return d
+    except (ValueError, TypeError): log.warning("Invalid float %s=%r", k, raw); return d
 def _int(k, d):
     raw = os.environ.get(k)
     if raw is None: return d
     try: return int(raw)
-    except (ValueError, TypeError):
-        log.warning("Invalid int for env var %s=%r, using default %r", k, raw, d)
-        return d
+    except (ValueError, TypeError): log.warning("Invalid int %s=%r", k, raw); return d
 def _origins() -> List[str]:
     return [o.strip() for o in _env("ALLOWED_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
 SUPABASE_URL = _env("SUPABASE_URL")

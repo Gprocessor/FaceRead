@@ -6,23 +6,15 @@ import { PageHeader } from '@/components/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
 interface Dept { id: string; name: string; created_at: string; }
-
 export function Departments() {
   const { user } = useAuth();
   const [departments, setDepartments] = useState<Dept[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('departments').select('id, name, created_at').order('name');
-    setDepartments(data ?? []); setLoading(false);
-  };
+  const load = async () => { setLoading(true); const { data } = await supabase.from('departments').select('id, name, created_at').order('name'); setDepartments(data ?? []); setLoading(false); };
   useEffect(() => { load(); }, []);
-
   const add = async (e: React.FormEvent) => {
     e.preventDefault(); setError(null);
     if (!user?.organizationId) { setError('Your account has no organization assigned yet.'); return; }
@@ -30,7 +22,6 @@ export function Departments() {
     if (err) { setError(err.message); return; }
     setName(''); await load();
   };
-
   return (
     <div>
       <PageHeader title="Departments" description="Organise staff into departments with their own supervisors" />

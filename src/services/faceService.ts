@@ -17,7 +17,6 @@ export async function submitLivenessCheck(sessionId: string, challengeType: stri
   fd.append('device_info', JSON.stringify(deviceInfo));
   return apiUpload<LivenessResult>('/api/liveness/check', fd);
 }
-
 export async function requestKioskLivenessChallenge(): Promise<LivenessChallengeResponse> {
   return kioskApiUpload<LivenessChallengeResponse>('/api/kiosk/liveness/challenge', new FormData());
 }

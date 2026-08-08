@@ -28,7 +28,6 @@ export async function getAdminEmployees(): Promise<Array<{ id: string; employee_
 export async function createAdminEmployee(data: { employee_code: string; full_name: string; email: string; phone?: string; position?: string; department_id?: string; hire_date?: string }): Promise<{ success: boolean; employee_id: string; message: string }> {
   return apiRequest('/api/admin/employees', { method: 'POST', body: JSON.stringify(data) });
 }
-
 export async function kioskCheckIn(imageBlob: Blob, livenessSessionId: string, deviceInfo: Record<string, unknown>, location?: { latitude: number; longitude: number }): Promise<CheckInOutResponse> {
   const fd = new FormData();
   fd.append('image', imageBlob, 'checkin.jpg'); fd.append('liveness_session_id', livenessSessionId); fd.append('device_info', JSON.stringify(deviceInfo));

@@ -1,15 +1,6 @@
-"""Kiosk device auth: a shared per-organization secret instead of a user login.
-
-The attendance kiosk screen has no logged-in user - a physical device sits at
-the entrance and anyone can walk up to it. Instead of a Supabase user JWT, the
-device presents a per-organization API key (generated once by an admin in
-Settings) via the X-Kiosk-Key header. This scopes the device to exactly one
-organization without requiring anyone to sign in to mark attendance.
-"""
+"""Kiosk device auth: a shared per-organization secret instead of a user login."""
 from fastapi import HTTPException, Request, status
 from app.database.supabase_client import get_supabase
-
-
 def get_kiosk_organization_id(request: Request) -> str:
     key = request.headers.get("X-Kiosk-Key", "").strip()
     if not key:
