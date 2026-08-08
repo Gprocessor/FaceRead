@@ -21,13 +21,14 @@ export function AttendanceCheckIn() {
   const [result, setResult] = useState<CheckInOutResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [noEmployeeRecord, setNoEmployeeRecord] = useState(false);
 
   useEffect(() => {
     (async () => {
       if (!user) return;
       const { data } = await supabase.from('employees').select('id').eq('user_id', user.id).maybeSingle();
       if (data) setEmployeeId(data.id);
-      else { const { data: all } = await supabase.from('employees').select('id').limit(1); if (all && all.length > 0) setEmployeeId(all[0].id); }
+      else setNoEmployeeRecord(true);
       setLoading(false);
     })();
   }, [user]);
@@ -44,6 +45,17 @@ export function AttendanceCheckIn() {
     <Badge variant={done ? 'success' : active ? 'default' : 'outline'}>{label}</Badge>
   );
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>;
+  if (noEmployeeRecord) {
+    return (
+      <div className="max-w-2xl">
+        <PageHeader title="Attendance Check" description="Verify identity with liveness detection and face recognition." />
+        <Card className="p-5 text-center space-y-2">
+          <XCircle className="w-10 h-10 mx-auto text-destructive" />
+          <p className="text-sm text-muted-foreground">Your account isn't linked to an employee record yet. Contact an administrator before checking in or out.</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl">

@@ -14,4 +14,4 @@ app.include_router(attendance_routes.router)
 async def root(): return {"name": "FaceAttend API", "status": "running", "docs": "/docs"}
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=PORT, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=PORT, reload=False)

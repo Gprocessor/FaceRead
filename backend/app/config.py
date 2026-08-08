@@ -1,12 +1,21 @@
-import os
+import os, logging
 from typing import List
+log = logging.getLogger("faceattend.config")
 def _env(k, d=""): return os.environ.get(k, d)
 def _flt(k, d):
-    try: return float(os.environ.get(k, str(d)))
-    except (ValueError, TypeError): return d
+    raw = os.environ.get(k)
+    if raw is None: return d
+    try: return float(raw)
+    except (ValueError, TypeError):
+        log.warning("Invalid float for env var %s=%r, using default %r", k, raw, d)
+        return d
 def _int(k, d):
-    try: return int(os.environ.get(k, str(d)))
-    except (ValueError, TypeError): return d
+    raw = os.environ.get(k)
+    if raw is None: return d
+    try: return int(raw)
+    except (ValueError, TypeError):
+        log.warning("Invalid int for env var %s=%r, using default %r", k, raw, d)
+        return d
 def _origins() -> List[str]:
     return [o.strip() for o in _env("ALLOWED_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
 SUPABASE_URL = _env("SUPABASE_URL")

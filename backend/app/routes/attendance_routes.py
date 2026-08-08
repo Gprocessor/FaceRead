@@ -2,17 +2,22 @@ import json
 from datetime import datetime, date
 from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException, Query
 from app.auth.jwt_validator import get_user_profile
+from app.auth.permissions import check_permission
 from app.database.supabase_client import get_supabase
 from app.face.detector import decode_image, detect_faces, validate_single_face, extract_face_region
-from app.face.embeddings import extract_embedding
+from app.face.embeddings import extract_embedding, EmbeddingUnavailableError
 from app.face.matcher import verify_against_profile
 from app.attendance.service import get_org_settings, check_duplicate, determine_status, create_attendance_session
 from app.attendance.rules import should_reject_duplicate
 from app.utils.audit import log_audit
 from app.utils.security import rate_limiter
+from app.routes.liveness_routes import consume_liveness_session
 router = APIRouter()
 
-async def _process(request, check_type, employee_id, image, device_info, latitude, longitude):
+STAFF_ROLES = ("super_admin", "org_admin", "hr_officer", "supervisor")
+
+
+async def _process(request, check_type, employee_id, image, device_info, latitude, longitude, liveness_session_id):
     profile = get_user_profile(request)
     if not rate_limiter.check(f"attendance:{profile['user_id']}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait.")
@@ -20,21 +25,42 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
     emp = sb.table("employees").select("*").eq("id", employee_id).maybe_single().execute()
     if not emp.data: raise HTTPException(status_code=404, detail="Employee not found")
     org_id = emp.data["organization_id"]
+
+    # Org-scoping: non-super_admins may only act within their own organization.
+    if profile["role"] != "super_admin" and profile.get("organization_id") != org_id:
+        raise HTTPException(status_code=403, detail="Employee does not belong to your organization")
+    # Only staff roles may check in/out someone other than themselves.
+    if profile["role"] not in STAFF_ROLES and emp.data.get("user_id") != profile["user_id"]:
+        raise HTTPException(status_code=403, detail="You may only check yourself in or out")
+
     settings = get_org_settings(org_id)
+
+    # Enforce the liveness challenge server-side: it must have actually been
+    # completed and passed for THIS user, be unused, and not expired.
+    if settings.get("require_liveness", True):
+        liveness_session = consume_liveness_session(liveness_session_id, profile["user_id"])
+        if not liveness_session:
+            raise HTTPException(status_code=400, detail="Liveness verification required: complete the liveness challenge first")
+        liveness_score = liveness_session["liveness_score"]
+    else:
+        liveness_score = 0.0
+
     if should_reject_duplicate(settings, check_type):
         existing = check_duplicate(org_id, employee_id, check_type)
         if existing:
-            return {"success": False, "employee_id": employee_id, "attendance_log_id": existing["id"], "attendance_session_id": "", "check_type": check_type, "status": existing["status"], "verification_status": "rejected", "face_match_score": 0.0, "liveness_score": 0.0, "message": f"Duplicate {check_type.replace('_', '-')} detected for today", "duplicate": True}
+            return {"success": False, "employee_id": employee_id, "attendance_log_id": existing["id"], "attendance_session_id": "", "check_type": check_type, "status": existing["status"], "verification_status": "rejected", "face_match_score": 0.0, "liveness_score": liveness_score, "message": f"Duplicate {check_type.replace('_', '-')} detected for today", "duplicate": True}
     img = decode_image(await image.read())
     if img is None: raise HTTPException(status_code=400, detail="Invalid image data")
     faces = detect_faces(img)
     v = validate_single_face(faces, settings.get("max_allowed_faces", 1), settings.get("min_face_confidence", 0.7))
     if not v["ok"]:
         sb.table("attendance_logs").insert({"organization_id": org_id, "employee_id": employee_id, "attendance_date": date.today().isoformat(), "check_type": check_type, "status": "failed_verification", "verification_status": "failed", "rejection_reason": v["error"], "device_info": json.loads(device_info) if device_info else {}, "location_latitude": float(latitude) if latitude else None, "location_longitude": float(longitude) if longitude else None}).execute()
-        return {"success": False, "employee_id": employee_id, "attendance_log_id": "", "attendance_session_id": "", "check_type": check_type, "status": "failed_verification", "verification_status": "failed", "face_match_score": 0.0, "liveness_score": 0.0, "message": v["error"], "duplicate": False}
-    emb = extract_embedding(extract_face_region(img, v["face"]["box"]))
+        return {"success": False, "employee_id": employee_id, "attendance_log_id": "", "attendance_session_id": "", "check_type": check_type, "status": "failed_verification", "verification_status": "failed", "face_match_score": 0.0, "liveness_score": liveness_score, "message": v["error"], "duplicate": False}
+    try:
+        emb, _model_name = extract_embedding(extract_face_region(img, v["face"]["box"]))
+    except EmbeddingUnavailableError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     fr = verify_against_profile(emb, employee_id, settings.get("face_match_threshold", 0.6))
-    liveness_score = 0.8
     if not fr["verified"]:
         status_val, verification_val = "failed_verification", "failed"
     else:
@@ -55,11 +81,11 @@ async def _process(request, check_type, employee_id, image, device_info, latitud
 
 @router.post("/api/attendance/check-in")
 async def check_in(request: Request, employee_id: str = Form(...), image: UploadFile = File(...), liveness_session_id: str = Form(...), device_info: str = Form("{}"), latitude: str | None = Form(None), longitude: str | None = Form(None)):
-    return await _process(request, "check_in", employee_id, image, device_info, latitude, longitude)
+    return await _process(request, "check_in", employee_id, image, device_info, latitude, longitude, liveness_session_id)
 
 @router.post("/api/attendance/check-out")
 async def check_out(request: Request, employee_id: str = Form(...), image: UploadFile = File(...), liveness_session_id: str = Form(...), device_info: str = Form("{}"), latitude: str | None = Form(None), longitude: str | None = Form(None)):
-    return await _process(request, "check_out", employee_id, image, device_info, latitude, longitude)
+    return await _process(request, "check_out", employee_id, image, device_info, latitude, longitude, liveness_session_id)
 
 @router.get("/api/attendance/history")
 async def get_history(request: Request, employee_id: str | None = Query(None), date_from: str | None = Query(None), date_to: str | None = Query(None)):
@@ -67,7 +93,15 @@ async def get_history(request: Request, employee_id: str | None = Query(None), d
     sb = get_supabase()
     q = sb.table("attendance_logs").select("*")
     if profile["role"] != "super_admin": q = q.eq("organization_id", profile["organization_id"])
-    if employee_id: q = q.eq("employee_id", employee_id)
+    if profile["role"] not in STAFF_ROLES:
+        # Non-staff can only ever see their own history.
+        own_emp = sb.table("employees").select("id").eq("user_id", profile["user_id"]).maybe_single().execute()
+        own_id = own_emp.data["id"] if own_emp.data else None
+        if employee_id and employee_id != own_id:
+            raise HTTPException(status_code=403, detail="You may only view your own attendance history")
+        q = q.eq("employee_id", own_id or "00000000-0000-0000-0000-000000000000")
+    elif employee_id:
+        q = q.eq("employee_id", employee_id)
     if date_from: q = q.gte("attendance_date", date_from)
     if date_to: q = q.lte("attendance_date", date_to)
     return q.order("created_at", desc=True).limit(100).execute().data or []
@@ -75,7 +109,6 @@ async def get_history(request: Request, employee_id: str | None = Query(None), d
 @router.get("/api/admin/reports")
 async def get_reports(request: Request, date_from: str | None = Query(None), date_to: str | None = Query(None)):
     profile = get_user_profile(request)
-    from app.auth.permissions import check_permission
     check_permission(profile, "super_admin", "org_admin", "hr_officer", "supervisor")
     sb = get_supabase()
     org_id = profile["organization_id"]; today = date.today().isoformat()

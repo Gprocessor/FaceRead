@@ -1,7 +1,7 @@
 """Token validation via Supabase /auth/v1/user + auto-profile creation."""
 import json, urllib.request, urllib.error
 from fastapi import HTTPException, status, Request
-from app.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+from app.config import SUPABASE_URL, SUPABASE_ANON_KEY
 
 def _extract_token(request: Request) -> str:
     auth = request.headers.get("Authorization", "")
@@ -11,7 +11,8 @@ def _extract_token(request: Request) -> str:
 
 def _validate_with_supabase(token: str) -> dict:
     if not SUPABASE_URL: raise HTTPException(status_code=500, detail="SUPABASE_URL not configured")
-    apikey = SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY
+    if not SUPABASE_ANON_KEY: raise HTTPException(status_code=500, detail="SUPABASE_ANON_KEY not configured")
+    apikey = SUPABASE_ANON_KEY
     req = urllib.request.Request(f"{SUPABASE_URL}/auth/v1/user")
     req.add_header("Authorization", f"Bearer {token}"); req.add_header("apikey", apikey)
     try:
