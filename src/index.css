@@ -51,6 +51,15 @@
   .surface-panel { background-color: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow-panel); }
   .grid-blueprint { background-image: linear-gradient(to right, oklch(0.62 0.13 195 / 0.07) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.62 0.13 195 / 0.07) 1px, transparent 1px); background-size: 44px 44px; }
   .scan-glow { box-shadow: var(--shadow-glow); }
-  .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+  /* NEW: hero gradient + glass for the redesigned dashboard */
+  .hero-gradient { background:
+      radial-gradient(1200px 400px at 10% -10%, oklch(0.62 0.13 195 / 0.18), transparent 60%),
+      radial-gradient(900px 400px at 100% 0%, oklch(0.72 0.15 72 / 0.12), transparent 55%),
+      linear-gradient(180deg, var(--card), var(--card)); }
+  .glass { background: color-mix(in oklch, var(--card) 82%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--border); }
+  .ring-soft { box-shadow: 0 0 0 1px var(--border), var(--shadow-panel); }
+  .animate-fade-in { animation: fadeIn 0.35s ease-out; }
+  .animate-rise { animation: rise 0.5s cubic-bezier(.2,.7,.2,1) both; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 }

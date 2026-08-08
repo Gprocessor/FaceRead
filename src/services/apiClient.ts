@@ -2,12 +2,7 @@ import { supabase } from './supabaseClient';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 if (!API_BASE_URL) throw new Error('Missing VITE_API_BASE_URL in .env');
 export class ApiError extends Error { status: number; detail: unknown; constructor(m: string, s: number, d?: unknown) { super(m); this.name = 'ApiError'; this.status = s; this.detail = d; } }
-async function authHeaders(): Promise<Record<string,string>> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const h: Record<string,string> = { 'Content-Type': 'application/json' };
-  if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
-  return h;
-}
+async function authHeaders(): Promise<Record<string,string>> { const { data: { session } } = await supabase.auth.getSession(); const h: Record<string,string> = { 'Content-Type': 'application/json' }; if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`; return h; }
 export async function apiRequest<T=unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers: { ...headers, ...(options.headers as Record<string,string>) } });
