@@ -17,8 +17,12 @@ function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        {/* Public attendance marking is the DEFAULT landing screen. */}
+        <Route path="/" element={<Kiosk />} />
         <Route path="/kiosk" element={<Kiosk />} />
+
+        {/* Admin area */}
+        <Route path="/login" element={<Login />} />
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/employees" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'hr_officer']}><Employees /></ProtectedRoute>} />
@@ -30,8 +34,9 @@ function App() {
           <Route path="/audit-logs" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'hr_officer']}><AuditLogs /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute allowedRoles={['super_admin', 'org_admin']}><Settings /></ProtectedRoute>} />
         </Route>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Unknown routes fall back to the attendance screen. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
   );

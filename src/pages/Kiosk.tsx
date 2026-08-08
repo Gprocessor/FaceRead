@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LogIn, LogOut, CheckCircle2, XCircle, Loader2, KeyRound, ScanFace } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LogIn, LogOut, CheckCircle2, XCircle, Loader2, KeyRound, ScanFace, ShieldCheck } from 'lucide-react';
 import { useCamera } from '@/hooks/useCamera';
 import { CameraCapture } from '@/components/CameraCapture';
 import { Button } from '@/components/ui/button';
@@ -10,19 +11,19 @@ import { getKioskKey, setKioskKey } from '@/services/apiClient';
 import { requestKioskLivenessChallenge, submitKioskLivenessCheck, type LivenessChallengeResponse } from '@/services/faceService';
 import { kioskCheckIn, kioskCheckOut, type CheckInOutResponse } from '@/services/attendanceService';
 
-type Phase = 'pairing' | 'idle' | 'liveness' | 'analyzing_liveness' | 'capturing' | 'result';
-
+type Phase = 'idle' | 'liveness' | 'analyzing' | 'capturing' | 'result';
 const RESULT_DISPLAY_MS = 5000;
 
 /**
- * Public attendance kiosk screen. No login required - this is meant to run
- * on a shared device (tablet/laptop) at the entrance. The device is scoped
- * to one organization via a paired kiosk key (see Settings > Kiosk), and WHO
- * is being checked in/out is determined purely by the face scan itself.
+ * Public attendance kiosk — the app's default landing screen. No login: a
+ * shared device sits at the entrance and WHO is checking in/out is decided by
+ * the face scan itself (1:N identify on the backend). The device is scoped to
+ * one organization via a kiosk key that an admin generates once in Settings.
  */
 export function Kiosk() {
   const [paired, setPaired] = useState(!!getKioskKey());
   const [keyInput, setKeyInput] = useState('');
+  const [pairing, setPairing] = useState(false);
   const [checkType, setCheckType] = useState<'check_in' | 'check_out'>('check_in');
   const [phase, setPhase] = useState<Phase>('idle');
   const [challenge, setChallenge] = useState<LivenessChallengeResponse | null>(null);
@@ -37,6 +38,8 @@ export function Kiosk() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paired]);
 
+  useEffect(() => () => { if (resetTimer.current) clearTimeout(resetTimer.current); }, []);
+
   const startScan = useCallback(async () => {
     setError(null); setResult(null);
     try {
@@ -50,7 +53,7 @@ export function Kiosk() {
 
   const runLivenessThenCheck = useCallback(async () => {
     if (!challenge) return;
-    setPhase('analyzing_liveness');
+    setPhase('analyzing');
     try {
       const frames = await camera.captureFrames(5, 300);
       const liveness = await submitKioskLivenessCheck(challenge.session_id, challenge.challenge_type, frames, getDeviceInfo());
@@ -74,79 +77,133 @@ export function Kiosk() {
     }
   }, [camera, challenge, checkType]);
 
-  useEffect(() => () => { if (resetTimer.current) clearTimeout(resetTimer.current); }, []);
-
   const handlePair = async () => {
     setError(null);
     const key = keyInput.trim();
     if (!key) return;
+    setPairing(true);
     setKioskKey(key);
     try {
-      // A bad key will fail on the first real kiosk-authenticated call.
-      await requestKioskLivenessChallenge();
+      await requestKioskLivenessChallenge(); // a bad key fails here
       setPaired(true);
     } catch {
-      setError('That key was rejected. Double-check it in Settings > Kiosk on the admin app.');
+      setError('That key was rejected. Check Settings → Kiosk in the admin app.');
+    } finally {
+      setPairing(false);
     }
   };
 
+  const AdminLink = (
+    <Link to="/login" title="Admin login"
+      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+      <ShieldCheck className="size-3.5" /> Admin
+    </Link>
+  );
+
+  // ---- Pairing screen (first-time device setup) ----
   if (!paired) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-6">
-        <div className="w-full max-w-sm space-y-4 text-center">
-          <KeyRound className="w-10 h-10 mx-auto text-primary" />
-          <h1 className="text-lg font-semibold text-display">Pair this kiosk</h1>
-          <p className="text-sm text-muted-foreground">Enter the kiosk key from an admin's Settings &gt; Kiosk page. This only needs to be done once per device.</p>
-          <div className="space-y-1.5 text-left">
-            <Label>Kiosk key</Label>
-            <Input value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder="Paste kiosk key" type="password" />
+      <div className="grid-blueprint min-h-screen bg-background flex flex-col">
+        <header className="flex items-center justify-between px-6 py-4">
+          <span className="inline-flex items-center gap-2 text-display font-bold">
+            <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg"><ScanFace className="size-4" /></span>
+            FaceAttend
+          </span>
+          {AdminLink}
+        </header>
+        <div className="flex-1 flex items-center justify-center px-4 pb-16">
+          <div className="surface-panel w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-2"><KeyRound className="size-5 text-primary" /><h1 className="text-display text-lg font-bold">Pair this kiosk</h1></div>
+            <p className="text-sm text-muted-foreground">Enter the kiosk key from an admin's <strong>Settings → Kiosk</strong> page. This is only needed once per device.</p>
+            <div className="space-y-1.5">
+              <Label htmlFor="kk">Kiosk key</Label>
+              <Input id="kk" type="password" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder="Paste kiosk key" />
+            </div>
+            {error && <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3"><XCircle className="size-4" />{error}</div>}
+            <Button onClick={handlePair} disabled={pairing} className="w-full">
+              {pairing ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />} Pair device
+            </Button>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button className="w-full" onClick={handlePair}>Pair device</Button>
         </div>
       </div>
     );
   }
 
+  // ---- Attendance marking (default) ----
+  const overlay = (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="w-48 h-60 border-2 border-primary/70 rounded-[50%]" />
+    </div>
+  );
+  const busy = phase === 'liveness' || phase === 'analyzing' || phase === 'capturing';
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 gap-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-display">Attendance Kiosk</h1>
-        <p className="text-sm text-muted-foreground">Look at the camera to {checkType === 'check_in' ? 'check in' : 'check out'}</p>
-      </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <span className="inline-flex items-center gap-2 text-display font-bold">
+          <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg"><ScanFace className="size-4" /></span>
+          Attendance Kiosk
+        </span>
+        {AdminLink}
+      </header>
 
-      <div className="w-full max-w-md space-y-4">
-        <CameraCapture videoRef={camera.videoRef} ready={camera.ready} error={camera.error}
-          overlay={<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-44 h-56 border-2 border-primary/70 rounded-[50%]" /></div>} />
-
-        {phase === 'result' && result && (
-          <div className="text-center space-y-2">
-            {result.success ? <CheckCircle2 className="w-12 h-12 mx-auto text-success" /> : <XCircle className="w-12 h-12 mx-auto text-destructive" />}
-            <h3 className="text-lg font-semibold text-display">{result.success ? `Welcome${result.employee_name ? `, ${result.employee_name}` : ''}!` : 'Not recognized'}</h3>
-            <p className="text-sm text-muted-foreground">{result.message}</p>
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="w-full max-w-xl space-y-5">
+          {/* Check in / out toggle */}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg">
+            <button onClick={() => setCheckType('check_in')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-md transition-colors ${checkType === 'check_in' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}><LogIn className="size-4" /> Check In</button>
+            <button onClick={() => setCheckType('check_out')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-md transition-colors ${checkType === 'check_out' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}><LogOut className="size-4" /> Check Out</button>
           </div>
-        )}
 
-        {phase === 'liveness' && challenge && (
-          <div className="text-center space-y-3">
-            <p className="text-sm font-medium">{challenge.instruction}</p>
-            <Button onClick={runLivenessThenCheck}><ScanFace className="w-4 h-4" />Ready</Button>
-          </div>
-        )}
+          <p className="text-center text-sm text-muted-foreground">
+            {phase === 'liveness'
+              ? challenge?.instruction ?? 'Follow the on-screen prompt'
+              : `Look at the camera to ${checkType === 'check_in' ? 'check in' : 'check out'}`}
+          </p>
 
-        {(phase === 'analyzing_liveness' || phase === 'capturing') && (
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" />{phase === 'analyzing_liveness' ? 'Verifying liveness…' : 'Capturing…'}</div>
-        )}
+          <CameraCapture videoRef={camera.videoRef} ready={camera.ready} error={camera.error} overlay={overlay} className="scan-glow" />
 
-        {error && phase === 'idle' && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3"><XCircle className="size-4" />{error}</div>}
 
-        {phase === 'idle' && (
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant={checkType === 'check_in' ? 'default' : 'outline'} onClick={() => { setCheckType('check_in'); startScan(); }}><LogIn className="w-4 h-4" />Check In</Button>
-            <Button variant={checkType === 'check_out' ? 'default' : 'outline'} onClick={() => { setCheckType('check_out'); startScan(); }}><LogOut className="w-4 h-4" />Check Out</Button>
-          </div>
-        )}
-      </div>
+          {/* Result card */}
+          {phase === 'result' && result && (
+            <div className="surface-panel p-5 text-center space-y-2">
+              {result.success ? <CheckCircle2 className="size-12 mx-auto text-success" /> : <XCircle className="size-12 mx-auto text-destructive" />}
+              <h2 className="text-display text-xl font-bold">
+                {result.success
+                  ? `${result.employee_name ?? 'Verified'} — ${checkType === 'check_in' ? 'Checked in' : 'Checked out'}`
+                  : result.duplicate ? 'Already recorded today' : 'Not recognized'}
+              </h2>
+              {result.employee_code && <p className="text-sm text-muted-foreground tnum">ID {result.employee_code}</p>}
+              {!result.success && <p className="text-sm text-muted-foreground">{result.message}</p>}
+            </div>
+          )}
+
+          {/* Action button */}
+          {phase === 'idle' && (
+            <Button size="lg" className="w-full text-base" onClick={startScan} disabled={!camera.ready}>
+              <ScanFace className="size-5" /> Scan face
+            </Button>
+          )}
+          {phase === 'liveness' && (
+            <Button size="lg" className="w-full text-base" onClick={runLivenessThenCheck}>
+              <ScanFace className="size-5" /> Capture &amp; verify
+            </Button>
+          )}
+          {busy && phase !== 'liveness' && (
+            <Button size="lg" className="w-full text-base" disabled>
+              <Loader2 className="size-5 animate-spin" /> {phase === 'analyzing' ? 'Checking liveness…' : 'Verifying…'}
+            </Button>
+          )}
+          {!camera.ready && !camera.error && (
+            <Button variant="secondary" className="w-full" onClick={() => camera.startCamera()}>Start camera</Button>
+          )}
+        </div>
+      </main>
+
+      <footer className="text-muted-foreground text-center text-xs px-6 py-3">
+        {new Date().toLocaleString()} · Biometric data is processed under your organization's consent records.
+      </footer>
     </div>
   );
 }
