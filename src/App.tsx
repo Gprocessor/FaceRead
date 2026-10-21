@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from '@/pages/Login';
+import { ResetPassword } from '@/pages/ResetPassword';
 import { Dashboard } from '@/pages/Dashboard';
 import { Employees } from '@/pages/Employees';
 import { Departments } from '@/pages/Departments';
@@ -18,6 +19,7 @@ function App() {
         <Route path="/" element={<Kiosk />} />
         <Route path="/kiosk" element={<Kiosk />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/employees" element={<ProtectedRoute allowedRoles={['super_admin','org_admin','hr_officer']}><Employees /></ProtectedRoute>} />

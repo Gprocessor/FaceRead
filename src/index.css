@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 :root {
   --radius: 0.5rem;
   --background: oklch(0.985 0.004 220); --foreground: oklch(0.22 0.025 250);
@@ -22,6 +23,7 @@
   --shadow-panel: 0 1px 2px oklch(0.2 0.03 240 / 0.06), 0 8px 24px -12px oklch(0.2 0.03 240 / 0.18);
   --shadow-glow: 0 0 0 1px oklch(0.62 0.13 195 / 0.35), 0 0 32px oklch(0.62 0.13 195 / 0.25);
 }
+
 .dark {
   --background: oklch(0.19 0.024 252); --foreground: oklch(0.95 0.008 225);
   --card: oklch(0.24 0.028 252); --card-foreground: oklch(0.95 0.008 225);
@@ -39,19 +41,21 @@
   --sidebar-accent: oklch(0.26 0.03 252); --sidebar-accent-foreground: oklch(0.97 0.005 220);
   --sidebar-border: oklch(1 0 0 / 10%); --sidebar-ring: oklch(0.7 0.12 200);
 }
+
 @layer base {
   * { border-color: var(--border); }
   body { background-color: var(--background); color: var(--foreground); font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   h1,h2,h3,h4 { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
-  *::-webkit-scrollbar { width: 8px; height: 8px; } *::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 4px; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 4px; }
 }
+
 @layer utilities {
   .text-display { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
   .tnum { font-variant-numeric: tabular-nums; }
   .surface-panel { background-color: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow-panel); }
   .grid-blueprint { background-image: linear-gradient(to right, oklch(0.62 0.13 195 / 0.07) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.62 0.13 195 / 0.07) 1px, transparent 1px); background-size: 44px 44px; }
   .scan-glow { box-shadow: var(--shadow-glow); }
-  /* NEW: hero gradient + glass for the redesigned dashboard */
   .hero-gradient { background:
       radial-gradient(1200px 400px at 10% -10%, oklch(0.62 0.13 195 / 0.18), transparent 60%),
       radial-gradient(900px 400px at 100% 0%, oklch(0.72 0.15 72 / 0.12), transparent 55%),

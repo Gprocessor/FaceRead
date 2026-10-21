@@ -1,16 +1,45 @@
 import { type ReactNode } from 'react';
 import { Camera, CameraOff } from 'lucide-react';
 import type { FaceBox } from '@/hooks/useFaceDetect';
-export function CameraCapture({ videoRef, ready, error, overlay, faceBox, className = '' }: { videoRef: React.RefObject<HTMLVideoElement>; ready: boolean; error?: string | null; overlay?: ReactNode; faceBox?: FaceBox | null; className?: string }) {
-  const v = videoRef.current; const vw = v?.videoWidth || 640, vh = v?.videoHeight || 480;
+
+export function CameraCapture({ videoRef, ready, error, overlay, faceBox, className = '' }: {
+  videoRef: React.RefObject<HTMLVideoElement>;
+  ready: boolean;
+  error?: string | null;
+  overlay?: ReactNode;
+  faceBox?: FaceBox | null;
+  className?: string;
+}) {
+  const v = videoRef.current;
+  const vw = v?.videoWidth || 640;
+  const vh = v?.videoHeight || 480;
+
   let boxStyle: React.CSSProperties | null = null;
-  if (faceBox && vw && vh) { const leftPct = ((vw - faceBox.x - faceBox.width) / vw) * 100; boxStyle = { left: `${leftPct}%`, top: `${(faceBox.y / vh) * 100}%`, width: `${(faceBox.width / vw) * 100}%`, height: `${(faceBox.height / vh) * 100}%` }; }
+  if (faceBox && vw && vh) {
+    // The preview is mirrored, so mirror the box horizontally too.
+    const leftPct = ((vw - faceBox.x - faceBox.width) / vw) * 100;
+    boxStyle = {
+      left: `${leftPct}%`,
+      top: `${(faceBox.y / vh) * 100}%`,
+      width: `${(faceBox.width / vw) * 100}%`,
+      height: `${(faceBox.height / vh) * 100}%`,
+    };
+  }
+
   return (
-    <div className={`relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-background border border-border ${ready ? 'scan-glow' : ''} ${className}`}>
-      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
-      {ready && boxStyle && (<div className="absolute rounded-lg border-2 border-primary transition-all duration-100" style={boxStyle}><span className="absolute -top-6 left-0 rounded bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5">Face</span></div>)}
+    <div className={`relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-black ${className}`}>
+      <video ref={videoRef} autoPlay playsInline muted className="h-full w-full -scale-x-100 object-cover" />
+      {ready && boxStyle && (
+        <div className="pointer-events-none absolute rounded-md border-2 border-success transition-all duration-100" style={boxStyle}>
+          <span className="absolute -top-5 left-0 rounded bg-success px-1.5 py-0.5 text-[10px] font-semibold text-success-foreground">Face</span>
+        </div>
+      )}
       {ready && overlay}
-      {!ready && (<div className="absolute inset-0 grid-blueprint flex flex-col items-center justify-center gap-3 text-muted-foreground bg-background/80">{error ? (<><CameraOff className="w-10 h-10 text-destructive" /><p className="text-sm text-destructive text-center px-6">{error}</p></>) : (<><Camera className="w-10 h-10 text-primary" /><p className="text-sm">Camera is off</p><p className="text-xs">Starting…</p></>)}</div>)}
+      {!ready && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-white/70">
+          {error ? (<><CameraOff className="size-8" />{error}</>) : (<><Camera className="size-8" />Starting camera&hellip;</>)}
+        </div>
+      )}
     </div>
   );
 }

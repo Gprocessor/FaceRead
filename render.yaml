@@ -15,13 +15,11 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      # Render's 512 MB free tier cannot hold an InsightFace model.
+      # Local development uses insightface/buffalo_l via backend/.env.
       - key: FACE_ENGINE
-        value: insightface
-      # Lightweight model for Render's 512 MB free tier (avoids OOM).
-      # Local dev uses buffalo_l via backend/.env (which is git-ignored).
-      - key: INSIGHTFACE_MODEL
-        value: buffalo_s
+        value: fallback
       - key: ALLOWED_ORIGINS
         value: https://gprocessor.github.io
       - key: FACE_MATCH_THRESHOLD
-        value: 0.68
+        value: 0.5

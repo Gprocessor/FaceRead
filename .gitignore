@@ -11,4 +11,5 @@ dist-ssr
 *.sw?
 .env
 backend/.venv
+backend/.liveness_sessions.json
 __pycache__

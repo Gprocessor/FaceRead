@@ -1,79 +1,166 @@
-import { useEffect, useRef, useState } from 'react';
-export interface FaceBox { x: number; y: number; width: number; height: number; }
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * Cross-browser face detection using MediaPipe Tasks Vision (WebAssembly).
- * Draws a live bounding box and provides a hands-free "face is ready" trigger
- * used by the kiosk to AUTO-SCAN (no click). Works in Chrome, Safari & Firefox
- * because it ships its own WASM runtime + model (loaded from a CDN once).
- *
- * Fallbacks: if the WASM model can't load (offline/CSP), it degrades to a fixed
- * auto-scan cadence so the kiosk still works — just without the visible box.
- */
+export interface FaceBox { x: number; y: number; width: number; height: number; }
+export type DetectorStatus = 'loading' | 'ready' | 'unsupported';
+
 const WASM_ROOT = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 
+// ~15 detections/sec. Faster wastes CPU and starves the camera encoder,
+// slower makes the box feel laggy.
+const DETECT_INTERVAL_MS = 66;
+
+export interface FaceDetectOptions {
+  /** When false the box still draws, but onReady never fires. */
+  active: boolean;
+  /** Fires once a face has been held steady for `stableMs`. */
+  onReady: () => void;
+  stableMs?: number;
+  cooldownMs?: number;
+  /** Face width as a fraction of frame width. Ignores people standing too far back. */
+  minFaceRatio?: number;
+}
+
+/**
+ * Cross-browser face detection (MediaPipe Tasks Vision / WASM).
+ *
+ * The detector is created ONCE and the loop never stops; `active` only gates
+ * the auto-trigger. Previously the effect depended on `enabled`, so every scan
+ * tore the detector down and the next scan re-initialised the WASM runtime and
+ * re-fetched the model - that was the main source of the slow-to-scan feel.
+ */
 export function useFaceDetect(
   videoRef: React.RefObject<HTMLVideoElement>,
-  opts: { enabled: boolean; onReady: () => void; cooldownMs?: number; stableMs?: number },
+  opts: FaceDetectOptions,
 ) {
-  const { enabled, onReady, cooldownMs = 5000, stableMs = 700 } = opts;
+  const { active, onReady, stableMs = 600, cooldownMs = 3000, minFaceRatio = 0.12 } = opts;
+
   const [box, setBox] = useState<FaceBox | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'unsupported'>('loading');
-  const raf = useRef<number | null>(null);
+  const [status, setStatus] = useState<DetectorStatus>('loading');
+  const [faceVisible, setFaceVisible] = useState(false);
+
   const detectorRef = useRef<any>(null);
-  const firstSeen = useRef<number | null>(null);
-  const lastFire = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
+  const lastDetectRef = useRef(0);
+  const firstSeenRef = useRef<number | null>(null);
+  const lastFireRef = useRef(0);
+  const boxRef = useRef<FaceBox | null>(null);
+  const visibleRef = useRef(false);
+
+  // Loop reads the latest values without being restarted.
+  const activeRef = useRef(active); activeRef.current = active;
   const onReadyRef = useRef(onReady); onReadyRef.current = onReady;
+  const stableRef = useRef(stableMs); stableRef.current = stableMs;
+  const cooldownRef = useRef(cooldownMs); cooldownRef.current = cooldownMs;
+  const ratioRef = useRef(minFaceRatio); ratioRef.current = minFaceRatio;
 
   useEffect(() => {
-    if (!enabled) { setBox(null); firstSeen.current = null; return; }
     let cancelled = false;
 
     (async () => {
-      // Try to load the WASM face detector.
       try {
         const vision = await import('@mediapipe/tasks-vision');
         const fileset = await vision.FilesetResolver.forVisionTasks(WASM_ROOT);
-        detectorRef.current = await vision.FaceDetector.createFromOptions(fileset, {
+        const detector = await vision.FaceDetector.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-          runningMode: 'VIDEO', minDetectionConfidence: 0.5,
+          runningMode: 'VIDEO',
+          // MediaPipe's default. Deliberately lower than the recognition
+          // threshold: this only answers "is somebody there?" - identity is
+          // still decided by InsightFace on the backend.
+          minDetectionConfidence: 0.5,
+          minSuppressionThreshold: 0.3,
         });
-        if (!cancelled) setStatus('ready');
+        if (cancelled) { try { detector.close?.(); } catch { /* ignore */ } return; }
+        detectorRef.current = detector;
+        setStatus('ready');
       } catch {
         if (!cancelled) setStatus('unsupported');
       }
-
-      const tick = () => {
-        const v = videoRef.current;
-        if (v && v.videoWidth) {
-          const det = detectorRef.current;
-          if (det) {
-            try {
-              const res = det.detectForVideo(v, performance.now());
-              const d = res?.detections?.[0]?.boundingBox;
-              if (d) {
-                setBox({ x: d.originX, y: d.originY, width: d.width, height: d.height });
-                if (firstSeen.current === null) firstSeen.current = performance.now();
-                const stable = performance.now() - firstSeen.current >= stableMs;
-                const cooled = performance.now() - lastFire.current >= cooldownMs;
-                if (stable && cooled) { lastFire.current = performance.now(); onReadyRef.current(); }
-              } else { setBox(null); firstSeen.current = null; }
-            } catch { /* frame not ready */ }
-          } else {
-            // Fallback: fire on a fixed cadence.
-            const cooled = performance.now() - lastFire.current >= cooldownMs;
-            if (cooled) { lastFire.current = performance.now(); onReadyRef.current(); }
-          }
-        }
-        if (!cancelled) raf.current = requestAnimationFrame(tick);
-      };
-      raf.current = requestAnimationFrame(tick);
     })();
 
-    return () => { cancelled = true; if (raf.current) cancelAnimationFrame(raf.current); try { detectorRef.current?.close?.(); } catch { /* */ } detectorRef.current = null; setBox(null); firstSeen.current = null; };
-  }, [enabled, videoRef, cooldownMs, stableMs]);
+    const publishBox = (next: FaceBox | null) => {
+      const prev = boxRef.current;
+      if (!next && !prev) return;
+      if (next && prev
+        && Math.abs(next.x - prev.x) < 3
+        && Math.abs(next.y - prev.y) < 3
+        && Math.abs(next.width - prev.width) < 3
+        && Math.abs(next.height - prev.height) < 3) return;
+      boxRef.current = next;
+      setBox(next);
+    };
 
-  const armCooldown = () => { lastFire.current = performance.now(); firstSeen.current = null; };
-  return { box, status, armCooldown };
+    const publishVisible = (v: boolean) => {
+      if (visibleRef.current === v) return;
+      visibleRef.current = v;
+      setFaceVisible(v);
+    };
+
+    const tick = () => {
+      rafRef.current = requestAnimationFrame(tick);
+
+      const now = performance.now();
+      if (now - lastDetectRef.current < DETECT_INTERVAL_MS) return;
+      lastDetectRef.current = now;
+
+      const video = videoRef.current;
+      if (!video || !video.videoWidth || video.readyState < 2) return;
+
+      const detector = detectorRef.current;
+
+      // No detector (offline / blocked CDN): keep the kiosk usable with a slow
+      // fixed cadence, just without a visible box.
+      if (!detector) {
+        if (activeRef.current && now - lastFireRef.current >= cooldownRef.current + stableRef.current) {
+          lastFireRef.current = now;
+          onReadyRef.current();
+        }
+        return;
+      }
+
+      let found: FaceBox | null = null;
+      try {
+        const result = detector.detectForVideo(video, now);
+        const bb = result?.detections?.[0]?.boundingBox;
+        if (bb) found = { x: bb.originX, y: bb.originY, width: bb.width, height: bb.height };
+      } catch { /* frame not ready for this timestamp */ }
+
+      publishBox(found);
+      publishVisible(!!found);
+
+      if (!found) { firstSeenRef.current = null; return; }
+
+      if (found.width / video.videoWidth < ratioRef.current) {
+        firstSeenRef.current = null;   // too far from the camera
+        return;
+      }
+
+      if (firstSeenRef.current === null) firstSeenRef.current = now;
+      if (!activeRef.current) return;
+      if (now - firstSeenRef.current < stableRef.current) return;
+      if (now - lastFireRef.current < cooldownRef.current) return;
+
+      lastFireRef.current = now;
+      firstSeenRef.current = null;
+      onReadyRef.current();
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      try { detectorRef.current?.close?.(); } catch { /* ignore */ }
+      detectorRef.current = null;
+    };
+  }, [videoRef]);
+
+  /** Restart the cooldown/stability timers after a scan finishes. */
+  const armCooldown = useCallback(() => {
+    lastFireRef.current = performance.now();
+    firstSeenRef.current = null;
+  }, []);
+
+  return { box, status, faceVisible, armCooldown };
 }
