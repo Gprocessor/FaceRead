@@ -13,19 +13,24 @@ log = logging.getLogger("faceattend.liveness")
 
 CHALLENGES = ["BLINK", "TURN_HEAD_LEFT", "TURN_HEAD_RIGHT", "LOOK_STRAIGHT"]
 CI = {
-    "BLINK": "Blink once, naturally",
-    "TURN_HEAD_LEFT": "Slowly turn your head to the left, then back to centre",
-    "TURN_HEAD_RIGHT": "Slowly turn your head to the right, then back to centre",
-    "LOOK_STRAIGHT": "Look straight ahead and hold still",
+    "BLINK": "Blink your eyes",
+    "TURN_HEAD_LEFT": "Turn your head left, then back to the centre",
+    "TURN_HEAD_RIGHT": "Turn your head right, then back to the centre",
+    "LOOK_STRAIGHT": "Look straight at the camera and hold still",
     "SMILE": "Give the camera a natural smile",
 }
 
-# An open eye shows a dark pupil next to bright sclera, so the intensity spread
-# inside the eye patch is wide. A closed eye is mostly even skin tone.
-OPEN_SPREAD_REF = 0.45   # spread that counts as "fully open"
-BLINK_DIP_REF = 0.22     # drop in openness that counts as a full blink
-TURN_YAW_REF = 0.32      # nose offset (in eye-widths) that counts as a full turn
-TURN_DRIFT_REF = 0.14    # fallback: face-box drift across the frame
+# An open eye shows dark pupil against bright sclera (wide intensity spread);
+# a closed lid is even skin tone.
+OPEN_SPREAD_REF = 0.45
+# Openness drop that counts as a full blink.
+BLINK_DIP_REF = 0.18
+# Change in nose-to-eye-centre offset (as a fraction of eye distance) that counts
+# as a full turn. A "slight" turn is roughly 0.15-0.25.
+TURN_YAW_REF = 0.22
+# Face-centre drift across the frame (fraction of width) that counts as a full turn
+# when landmarks are unavailable.
+TURN_DRIFT_REF = 0.10
 
 
 def get_random_challenge():
@@ -49,16 +54,13 @@ def _eye_openness(gray, eye_xy, interocular):
     patch = gray[y0:y1, x0:x1]
     if patch.size == 0:
         return None
-    p10, p90 = np.percentile(patch, 10), np.percentile(patch, 90)
-    spread = float(p90 - p10) / 255.0
+    spread = float(np.percentile(patch, 90) - np.percentile(patch, 10)) / 255.0
     return _clamp(spread / OPEN_SPREAD_REF)
 
 
 def _frame_features(img):
-    """Per-frame eye openness, yaw proxy and face position. One detection pass."""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape[:2]
-
     pts = get_face_points(img)
     if pts is not None:
         left_eye, right_eye, nose = pts["left_eye"], pts["right_eye"], pts["nose"]
@@ -68,27 +70,22 @@ def _frame_features(img):
         if not faces:
             return None
         bx, by, bw, bh = max(faces, key=lambda f: f["box"][2] * f["box"][3])["box"]
-        # Geometric estimate when only a face box is available.
         left_eye = np.array([bx + 0.30 * bw, by + 0.38 * bh])
         right_eye = np.array([bx + 0.70 * bw, by + 0.38 * bh])
         nose = np.array([bx + 0.50 * bw, by + 0.55 * bh])
 
-    interocular = float(np.linalg.norm(
-        np.asarray(right_eye, dtype=float) - np.asarray(left_eye, dtype=float)))
+    interocular = float(np.linalg.norm(np.asarray(right_eye, float) - np.asarray(left_eye, float)))
     if interocular <= 1.0:
         interocular = max(4.0, 0.4 * float(bw))
 
-    openness_vals = [v for v in (_eye_openness(gray, left_eye, interocular),
-                                 _eye_openness(gray, right_eye, interocular)) if v is not None]
-    openness = float(np.mean(openness_vals)) if openness_vals else None
-
+    vals = [v for v in (_eye_openness(gray, left_eye, interocular),
+                        _eye_openness(gray, right_eye, interocular)) if v is not None]
     yaw = None
     if pts is not None:
-        eye_mid_x = (float(left_eye[0]) + float(right_eye[0])) / 2.0
-        yaw = (float(nose[0]) - eye_mid_x) / interocular
+        yaw = (float(nose[0]) - (float(left_eye[0]) + float(right_eye[0])) / 2.0) / interocular
 
     return {
-        "openness": openness,
+        "openness": float(np.mean(vals)) if vals else None,
         "yaw": yaw,
         "cx": (float(bx) + float(bw) / 2.0) / max(1.0, float(w)),
         "cy": (float(by) + float(bh) / 2.0) / max(1.0, float(h)),
@@ -99,32 +96,38 @@ def _score_blink(feats):
     vals = [f["openness"] for f in feats if f["openness"] is not None]
     if len(vals) < 3:
         return 0.0
-    dip = max(vals) - min(vals)
-    score = dip / BLINK_DIP_REF
+    score = (max(vals) - min(vals)) / BLINK_DIP_REF
     if max(vals) < 0.25:
-        # Eyes were never clearly open, so the dip is not trustworthy.
         score *= 0.6
     return _clamp(score)
 
 
 def _score_turn(feats):
+    """
+    Uses whichever signal moved most: head rotation from landmarks, or the face
+    centre drifting across the frame. Direction is not enforced because the
+    preview is mirrored and people often turn the 'wrong' way; any real turn
+    proves a live, moving head.
+    """
+    yaw_score = 0.0
     yaws = [f["yaw"] for f in feats if f["yaw"] is not None]
     if len(yaws) >= 3:
-        return _clamp((max(yaws) - min(yaws)) / TURN_YAW_REF)
+        yaw_score = (max(yaws) - min(yaws)) / TURN_YAW_REF
     xs = [f["cx"] for f in feats]
-    if len(xs) < 2:
-        return 0.0
-    return _clamp((max(xs) - min(xs)) / TURN_DRIFT_REF)
+    drift_score = 0.0 if len(xs) < 2 else (max(xs) - min(xs)) / TURN_DRIFT_REF
+    return _clamp(max(yaw_score, drift_score))
 
 
 def _score_straight(feats):
     cx = float(np.mean([f["cx"] for f in feats]))
     cy = float(np.mean([f["cy"] for f in feats]))
-    centered = _clamp(1.0 - (abs(cx - 0.5) * 2.0 + abs(cy - 0.5) * 2.0))
+    # Anywhere in the middle 60% of the frame counts as centred.
+    off = max(0.0, abs(cx - 0.5) - 0.2) + max(0.0, abs(cy - 0.5) - 0.2)
+    centered = _clamp(1.0 - off * 3.0)
     yaws = [f["yaw"] for f in feats if f["yaw"] is not None]
     if yaws:
-        straight = _clamp(1.0 - abs(float(np.mean(yaws))) / TURN_YAW_REF)
-        return _clamp(0.5 * straight + 0.5 * centered)
+        facing = _clamp(1.0 - max(0.0, abs(float(np.mean(yaws))) - 0.08) / 0.3)
+        return _clamp(0.5 * facing + 0.5 * centered)
     return centered
 
 
@@ -133,35 +136,27 @@ def analyze_frames(frames, ct):
     decoded = [img for raw in frames if (img := decode_image(raw)) is not None]
     n = len(decoded)
 
-    def _done(passed, score, reason):
-        return {
-            "passed": passed,
-            "liveness_score": round(float(score), 4),
-            "failure_reason": reason,
-            "frame_count": n,
-            "processing_time_ms": int((time.time() - start) * 1000),
-        }
+    def done(passed, score, reason):
+        return {"passed": passed, "liveness_score": round(float(score), 4), "failure_reason": reason,
+                "frame_count": n, "processing_time_ms": int((time.time() - start) * 1000)}
 
     if n == 0:
-        return _done(False, 0.0, "No valid frames received")
-
+        return done(False, 0.0, "No valid frames received")
     feats = [f for f in (_frame_features(img) for img in decoded) if f is not None]
-    if not feats:
-        return _done(False, 0.0, "No face detected during the liveness check")
+    if len(feats) < max(2, n // 2):
+        return done(False, 0.0, "Face not visible in enough frames - stay in front of the camera")
 
     if ct == "BLINK":
         score = _score_blink(feats)
+        hint = "blink more clearly"
     elif ct in ("TURN_HEAD_LEFT", "TURN_HEAD_RIGHT"):
         score = _score_turn(feats)
+        hint = "turn your head a little further"
     else:
         score = _score_straight(feats)
+        hint = "look straight at the camera"
 
     passed = score >= LIVENESS_THRESHOLD
-    log.info("liveness challenge=%s frames=%d usable=%d score=%.3f passed=%s",
-             ct, n, len(feats), score, passed)
-
-    reason = None
-    if not passed:
-        # The score is included so the threshold can be tuned from real data.
-        reason = f"Liveness challenge not satisfied (score {score:.2f}, needs {LIVENESS_THRESHOLD:.2f})"
-    return _done(passed, score, reason)
+    log.info("liveness %s frames=%d usable=%d score=%.3f passed=%s", ct, n, len(feats), score, passed)
+    reason = None if passed else f"Liveness not confirmed - {hint} (score {score:.2f}, needs {LIVENESS_THRESHOLD:.2f})"
+    return done(passed, score, reason)
