@@ -10,7 +10,9 @@ import { Label } from '@/components/ui/label';
 import { getDeviceInfo, getLocation } from '@/utils/deviceInfo';
 import { getKioskKey, setKioskKey } from '@/services/apiClient';
 import { requestKioskLivenessChallenge, submitKioskLivenessCheck } from '@/services/faceService';
-import { kioskCheckIn, kioskCheckOut, type CheckInOutResponse } from '@/services/attendanceService';
+import { kioskCheckIn, kioskCheckOut, getKioskConfig, type CheckInOutResponse } from '@/services/attendanceService';
+
+export const KIOSK_BUILD = 'v1.4.1 \u00b7 full-frame';
 
 type Phase = 'idle' | 'liveness' | 'recognizing' | 'success' | 'error' | 'wait-exit';
 
@@ -55,6 +57,7 @@ export function Kiosk() {
   const [attemptNote, setAttemptNote] = useState<string | null>(null);
   const [result, setResult] = useState<CheckInOutResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [livenessOn, setLivenessOn] = useState(true);
 
   const camera = useCamera();
   const busyRef = useRef(false);
@@ -66,6 +69,10 @@ export function Kiosk() {
     if (resultTimer.current) { clearTimeout(resultTimer.current); resultTimer.current = null; }
     if (exitTimer.current) { clearTimeout(exitTimer.current); exitTimer.current = null; }
   };
+
+  useEffect(() => {
+    if (paired) getKioskConfig().then((c) => setLivenessOn(c.require_liveness)).catch(() => { /* offline */ });
+  }, [paired]);
 
   useEffect(() => {
     if (paired) camera.startCamera();
@@ -104,8 +111,15 @@ export function Kiosk() {
     setError(null);
     setResult(null);
     try {
-      setPhase('liveness');
-      const sessionId = await passLiveness();
+      // Ask the server every scan, so turning liveness off in Settings applies immediately.
+      let requireLiveness = true;
+      try { requireLiveness = (await getKioskConfig()).require_liveness; } catch { /* keep the safe default */ }
+      setLivenessOn(requireLiveness);
+      let sessionId: string | null = null;
+      if (requireLiveness) {
+        setPhase('liveness');
+        sessionId = await passLiveness();
+      }
 
       setPhase('recognizing');
       setChallenge(null);
@@ -152,7 +166,7 @@ export function Kiosk() {
     if (!key) return;
     setPairing(true);
     setKioskKey(key);
-    try { await requestKioskLivenessChallenge(); setPaired(true); }
+    try { const cfg = await getKioskConfig(); setLivenessOn(cfg.require_liveness); setPaired(true); }
     catch { setError('That key was rejected. Check Settings \u2192 Kiosk in the admin app.'); }
     finally { setPairing(false); }
   };
@@ -244,7 +258,7 @@ export function Kiosk() {
           )}
         </div>
       </main>
-      <footer className="text-muted-foreground text-center text-xs px-6 py-3">{new Date().toLocaleString()} &middot; Biometric data is processed under your organization&rsquo;s consent records.</footer>
+      <footer className="text-muted-foreground text-center text-xs px-6 py-3">{new Date().toLocaleString()} &middot; Biometric data is processed under your organization&rsquo;s consent records. &middot; {livenessOn ? 'Liveness on' : 'Liveness off'} &middot; {KIOSK_BUILD}</footer>
     </div>
   );
 }

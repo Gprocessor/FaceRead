@@ -4,24 +4,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import ALLOWED_ORIGINS, PORT
-from app.routes import (
-    health_routes, auth_routes, employee_routes, face_routes,
-    liveness_routes, attendance_routes, org_routes, join_routes,
-)
+from app.routes import (health_routes, auth_routes, employee_routes, face_routes, liveness_routes,
+                        attendance_routes, org_routes, join_routes, people_schema_routes)
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="FaceAttend API", version="1.3.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="FaceAttend API", version="1.4.1")
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_credentials=True,
+                   allow_methods=["*"], allow_headers=["*"])
 
-for r in (health_routes, auth_routes, employee_routes, face_routes,
-          liveness_routes, attendance_routes, org_routes, join_routes):
+for r in (health_routes, auth_routes, employee_routes, face_routes, liveness_routes,
+          attendance_routes, org_routes, join_routes, people_schema_routes):
     app.include_router(r.router)
 
 

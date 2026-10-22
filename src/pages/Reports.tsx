@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Download, Users, CalendarCheck, Clock, AlertTriangle, Search, RefreshCw } from 'lucide-react';
 import { getAdminReports, type AdminReport } from '@/services/attendanceService';
+import { formatFieldValue } from '@/services/peopleService';
 import { StatCard } from '@/components/ui/stat-card';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { Donut } from '@/components/ui/donut';
@@ -77,12 +78,18 @@ export function Reports() {
     if (r) { setDateFrom(r[0]); setDateTo(r[1]); }
   };
 
+  const extraFields = report?.report_fields ?? [];
+  const idLabel = report?.labels?.id_label ?? 'Code';
+  const personLabel = report?.labels?.person_singular ?? 'Employee';
   const departments = useMemo(() => Array.from(new Set((report?.records ?? []).map((r) => r.department).filter(Boolean))) as string[], [report]);
-  const rows = useMemo(() => (report?.records ?? []).filter((r) =>
-    matchesStatus(r.status, status) &&
-    (dept === 'all' || r.department === dept) &&
-    (q === '' || r.employee_name.toLowerCase().includes(q.toLowerCase()) || r.employee_code.toLowerCase().includes(q.toLowerCase()))
-  ), [report, status, dept, q]);
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (report?.records ?? []).filter((r) =>
+      matchesStatus(r.status, status)
+      && (dept === 'all' || r.department === dept)
+      && (needle === '' || r.employee_name.toLowerCase().includes(needle) || r.employee_code.toLowerCase().includes(needle)
+        || Object.values(r.details ?? {}).some((v) => v !== null && v !== undefined && String(v).toLowerCase().includes(needle))));
+  }, [report, status, dept, q]);
 
   const rate = report ? report.attendance_rate : 0;
   const attended = report ? (report.attended_today ?? report.present_today) : 0;
@@ -96,8 +103,8 @@ export function Reports() {
 
   const exportCsv = () => {
     if (!report) return;
-    const headers = ['Date', 'Employee', 'Code', 'Department', 'Status', 'Check In', 'Check Out', 'Face Score', 'Liveness'];
-    const data = rows.map((r) => [r.attendance_date ?? '', r.employee_name, r.employee_code, r.department ?? '', r.status, r.check_in_time ? formatTime(r.check_in_time) : '', r.check_out_time ? formatTime(r.check_out_time) : '', r.face_match_score != null ? (r.face_match_score * 100).toFixed(1) + '%' : '', r.liveness_score != null ? (r.liveness_score * 100).toFixed(1) + '%' : '']);
+    const headers = ['Date', personLabel, idLabel, 'Department', ...extraFields.map((f) => f.label), 'Status', 'Check In', 'Check Out', 'Face Score', 'Liveness'];
+    const data = rows.map((r) => [r.attendance_date ?? '', r.employee_name, r.employee_code, r.department ?? '', ...extraFields.map((f) => formatFieldValue(f, r.details?.[f.key])), r.status, r.check_in_time ? formatTime(r.check_in_time) : '', r.check_out_time ? formatTime(r.check_out_time) : '', r.face_match_score != null ? (r.face_match_score * 100).toFixed(1) + '%' : '', r.liveness_score != null ? (r.liveness_score * 100).toFixed(1) + '%' : '']);
     const csv = [headers, ...data].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a'); a.href = url; a.download = `attendance_${dateFrom}_to_${dateTo}.csv`; a.click(); URL.revokeObjectURL(url);
@@ -124,7 +131,7 @@ export function Reports() {
         <div className="flex flex-wrap items-end gap-3">
           <div><label className="text-xs font-medium text-muted-foreground">From</label><Input type="date" value={dateFrom} max={today} onChange={(e) => { setPreset('custom'); setDateFrom(e.target.value); }} className="mt-1" /></div>
           <div><label className="text-xs font-medium text-muted-foreground">To</label><Input type="date" value={dateTo} max={today} onChange={(e) => { setPreset('custom'); setDateTo(e.target.value); }} className="mt-1" /></div>
-          <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or code…" /></div>
+          <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search name, ${idLabel} or any field…`} /></div>
           <select value={dept} onChange={(e) => setDept(e.target.value)} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"><option value="all">All departments</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select>
         </div>
       </CardContent></Card>
@@ -133,7 +140,7 @@ export function Reports() {
 
       {loading && !report ? <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div> : report ? (<div className="space-y-6">
         <div className="grid gap-4 lg:grid-cols-[repeat(4,1fr)_auto]">
-          <StatCard icon={Users} label="Total People" value={report.total_employees} tone="primary" sub={single ? undefined : `${report.days} days`} />
+          <StatCard icon={Users} label={`Total ${report.labels?.person_plural ?? 'People'}`} value={report.total_employees} tone="primary" sub={single ? undefined : `${report.days} days`} />
           <StatCard icon={CalendarCheck} label="Attended" value={attended} tone="success" />
           <StatCard icon={Clock} label="Late" value={report.late_today} tone="warning" />
           <StatCard icon={AlertTriangle} label={single ? 'Absent' : 'Absent (person-days)'} value={report.absent_today} tone="destructive" />
@@ -148,13 +155,14 @@ export function Reports() {
 
         <Card className="overflow-hidden">
           <Table>
-            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Employee</TableHead><TableHead>Code</TableHead><TableHead className="hidden md:table-cell">Dept</TableHead><TableHead>Status</TableHead><TableHead>In</TableHead><TableHead>Out</TableHead><TableHead>Face</TableHead><TableHead>Live</TableHead></TableRow></TableHeader>
-            <TableBody>{rows.length === 0 ? <TableRow><TableCell colSpan={9} className="py-10 text-center text-muted-foreground">No records match your filters.</TableCell></TableRow> : rows.map((r, i) => (
+            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>{personLabel}</TableHead><TableHead>{idLabel}</TableHead><TableHead className="hidden md:table-cell">Dept</TableHead>{extraFields.map((f) => <TableHead key={f.key} className="hidden lg:table-cell">{f.label}</TableHead>)}<TableHead>Status</TableHead><TableHead>In</TableHead><TableHead>Out</TableHead><TableHead>Face</TableHead><TableHead>Live</TableHead></TableRow></TableHeader>
+            <TableBody>{rows.length === 0 ? <TableRow><TableCell colSpan={9 + extraFields.length} className="py-10 text-center text-muted-foreground">No records match your filters.</TableCell></TableRow> : rows.map((r, i) => (
               <TableRow key={`${r.employee_id}-${r.attendance_date}-${i}`}>
                 <TableCell className="tnum text-muted-foreground">{r.attendance_date ? formatDate(r.attendance_date) : '—'}</TableCell>
                 <TableCell className="font-medium">{r.employee_name}</TableCell>
                 <TableCell className="tnum text-xs text-muted-foreground">{r.employee_code}</TableCell>
                 <TableCell className="hidden md:table-cell text-muted-foreground">{r.department ?? '—'}</TableCell>
+                {extraFields.map((f) => <TableCell key={f.key} className="hidden lg:table-cell text-muted-foreground">{formatFieldValue(f, r.details?.[f.key]) || '\u2014'}</TableCell>)}
                 <TableCell><Badge variant={statusVariant(r.status)}>{r.status.replace('_', ' ')}</Badge></TableCell>
                 <TableCell className="tnum text-muted-foreground">{r.check_in_time ? formatTime(r.check_in_time) : '—'}</TableCell>
                 <TableCell className="tnum text-muted-foreground">{r.check_out_time ? formatTime(r.check_out_time) : '—'}</TableCell>

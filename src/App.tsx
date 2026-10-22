@@ -3,6 +3,7 @@ import { Login } from '@/pages/Login';
 import { ResetPassword } from '@/pages/ResetPassword';
 import { Dashboard } from '@/pages/Dashboard';
 import { Employees } from '@/pages/Employees';
+import { PeopleFields } from '@/pages/PeopleFields';
 import { Departments } from '@/pages/Departments';
 import { FaceEnrollment } from '@/pages/FaceEnrollment';
 import { Reports } from '@/pages/Reports';
@@ -23,6 +24,7 @@ function App() {
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/employees" element={<ProtectedRoute allowedRoles={['super_admin','org_admin','hr_officer']}><Employees /></ProtectedRoute>} />
+          <Route path="/people-fields" element={<ProtectedRoute allowedRoles={['super_admin','org_admin']}><PeopleFields /></ProtectedRoute>} />
           <Route path="/departments" element={<ProtectedRoute allowedRoles={['super_admin','org_admin','hr_officer']}><Departments /></ProtectedRoute>} />
           <Route path="/face-enrollment" element={<ProtectedRoute allowedRoles={['super_admin','org_admin','hr_officer']}><FaceEnrollment /></ProtectedRoute>} />
           <Route path="/access" element={<ProtectedRoute allowedRoles={['super_admin','org_admin']}><AccessTeam /></ProtectedRoute>} />

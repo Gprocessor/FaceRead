@@ -29,16 +29,15 @@ node -v               # v20.x
 
 ## 1. Database (one time, Supabase -> SQL Editor)
 
-Run these in order:
+Run **one** file: `supabase/migrations/00_faceattend_full_setup.sql`
 
-1. `supabase/migrations/20260803155254_create_core_schema.sql`
-2. `supabase/migrations/20260803155331_create_rls_policies.sql`
-3. `supabase/migrations/20260808120000_kiosk_api_key.sql`
-4. `supabase/migrations/20260812120000_domains_and_join_requests.sql`
-5. `supabase/migrations/02_onboarding_register_or_join.sql`
+It creates or upgrades everything (tables, security rules, sign-up trigger, people fields).
+It is safe to run again at any time and never deletes data.
+The older files in `supabase/migrations/Old` are for reference only - do not run them.
 
-To wipe everything (data **and** user accounts) and start fresh, run
-`supabase/migrations/01_CLEAN_ALL_INCLUDING_USERS.sql` first.
+Then in Supabase -> Authentication -> URL Configuration:
+- Site URL: `http://localhost:5173`
+- Redirect URLs: add `http://localhost:5173/**` (needed for password reset)
 
 ---
 

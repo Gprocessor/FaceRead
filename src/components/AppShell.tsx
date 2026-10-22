@@ -1,7 +1,8 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, ScanFace, FileBarChart, Settings, ShieldCheck, UserCog, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, ScanFace, FileBarChart, Settings, ShieldCheck, UserCog, LogOut, Menu, X, ListChecks } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePeopleSchema, clearPeopleSchemaCache } from '@/hooks/usePeopleSchema';
 import type { UserRole } from '@/services/authService';
 import { cn } from '@/utils/cn';
 
@@ -9,23 +10,29 @@ interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; rol
 
 const M: UserRole[] = ['super_admin', 'org_admin', 'hr_officer'];
 
-const NAV: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/employees', label: 'People', icon: Users, roles: M },
-  { to: '/departments', label: 'Departments', icon: Building2, roles: M },
-  { to: '/face-enrollment', label: 'Face Enrollment', icon: ScanFace, roles: M },
-  { to: '/reports', label: 'Reports', icon: FileBarChart, roles: [...M, 'supervisor'] },
-  { to: '/access', label: 'Access & Team', icon: UserCog, roles: ['super_admin', 'org_admin'] },
-  { to: '/audit-logs', label: 'Audit Log', icon: ShieldCheck, roles: M },
-  { to: '/settings', label: 'Settings', icon: Settings, roles: ['super_admin', 'org_admin'] },
-];
+const ADMIN: UserRole[] = ['super_admin','org_admin'];
+function buildNav(peopleLabel: string): NavItem[] {
+  return [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/employees', label: peopleLabel, icon: Users, roles: M },
+    { to: '/people-fields', label: 'People Fields', icon: ListChecks, roles: ADMIN },
+    { to: '/departments', label: 'Departments', icon: Building2, roles: M },
+    { to: '/face-enrollment', label: 'Face Enrollment', icon: ScanFace, roles: M },
+    { to: '/reports', label: 'Reports', icon: FileBarChart, roles: [...M, 'supervisor'] },
+    { to: '/access', label: 'Access & Team', icon: UserCog, roles: ADMIN },
+    { to: '/audit-logs', label: 'Audit Log', icon: ShieldCheck, roles: M },
+    { to: '/settings', label: 'Settings', icon: Settings, roles: ADMIN },
+  ];
+}
 
 export function AppShell() {
   const { user, logout } = useAuth();
+  const { labels } = usePeopleSchema();
+  const NAV = buildNav(labels.person_plural);
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleLogout = async () => { await logout(); navigate('/login'); };
+  const handleLogout = async () => { clearPeopleSchemaCache(); await logout(); navigate('/login'); };
   const visible = NAV.filter((i) => !i.roles || (user && i.roles.includes(user.role)));
   const initials = (user?.fullName?.charAt(0) || user?.email?.charAt(0) || '?').toUpperCase();
 

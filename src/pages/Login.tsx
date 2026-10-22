@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { ScanFace, Mail, Lock, Loader2, AlertCircle, User, Globe, Building2, ArrowLeft, Clock, CheckCircle2 } from 'lucide-react';
+import { ScanFace, Mail, Lock, Loader2, AlertCircle, User, Globe, Building2, ArrowLeft, Clock, CheckCircle2, Shapes } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { myJoinStatus } from '@/services/joinService';
+import { ORG_TYPES } from '@/services/peopleService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +21,7 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [orgName, setOrgName] = useState('');
+  const [orgType, setOrgType] = useState('company');
   const [domain, setDomain] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export function Login() {
       } else if (mode === 'register') {
         const { data, error: err } = await supabase.auth.signUp({
           email, password,
-          options: { data: { full_name: fullName, new_org_name: orgName, requested_domain: domain.trim().toLowerCase() } },
+          options: { data: { full_name: fullName, new_org_name: orgName, org_type: orgType, requested_domain: domain.trim().toLowerCase() } },
         });
         if (err) throw err;
         if (data.session) { await refresh(); navigate('/dashboard'); }
@@ -103,6 +105,14 @@ export function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (<>
             <div className="space-y-1.5"><Label htmlFor="org">Organization name</Label><div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input id="org" className="pl-9" value={orgName} onChange={(e) => setOrgName(e.target.value)} required placeholder="Acme Manufacturing" /></div></div>
+            <div className="space-y-1.5"><Label htmlFor="otype">Organization type</Label>
+              <div className="relative"><Shapes className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <select id="otype" value={orgType} onChange={(e) => setOrgType(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                  {ORG_TYPES.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+                </select>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Sets the starter fields (e.g. Matric No. and Level for a university). You can change it later in Settings.</p>
+            </div>
             <div className="space-y-1.5"><Label htmlFor="dom2">Company domain (optional)</Label><div className="relative"><Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input id="dom2" className="pl-9" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="company.com — lets others request to join" /></div></div>
           </>)}
           {mode === 'join' && (

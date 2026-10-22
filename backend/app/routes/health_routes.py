@@ -8,5 +8,5 @@ router = APIRouter()
 
 @router.get("/api/health", response_model=HealthResponse)
 async def health():
-    return HealthResponse(status="ok", version="1.3.0",
+    return HealthResponse(status="ok", version="1.4.1",
                           face_model=engine_name() if engine_available() else "unavailable")
